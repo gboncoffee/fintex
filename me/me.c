@@ -99,13 +99,79 @@ static inline void set_market_price(MeContext *context, MeSecurityContext *ctx, 
 	mq_send(context->outcoming, (char*) msg, sizeof(MeMessage), 1);
 }
 
-static inline void new_order(MeContext *context, MeSecurityContext *ctx, MeMessage *msg)
+#define LEFT(a) (2*a + 1)
+#define RIGHT(a) (2*a + 2)
+
+static inline void trade(MeContext *context, MeOrder *aggressor, MeOrder *other)
 {
-	(void) ctx;
-	printf("TODO: new order\n");
+	(void) context;
+	(void) aggressor;
+	(void) other;
+	/* TODO */
+}
+
+static inline void new_market_buy(MeContext *context, MeSecurityContext *ctx, MeMessage *msg)
+{
+	MeMessage to_send;
+	to_send.msg_type = ME_MESSAGE_TRADE;
+	to_send.security_id = msg->security_id;
+	B3Quantity new_aggressor_quantity = msg->quantity;
+	B3Quantity new_matched_quantity = ctx->sell->orders[0].quantity;
+
+	while (msg->message.order.quantity > 0 && ctx->sell->used > 0) {
+		new_aggressor_quantity -= ctx->sell->orders[0].quantity;
+		new_matched_quantity -= msg->message.order.quantity;
+		trade(context, &msg->message.order, &ctx->sell->orders[0]);
+		msg->message.order.quantity = new_aggressor_quantity;
+		ctx->sell->orders[0].quantity = new_matched_quantity;
+
+		to_send.message.trade.aggressor = msg->message.order;
+		to_send.message.trade.matched_id = ctx->sell->orders[0].order_id;
+
+		if (new_matched_quantity <= 0)
+			remove_first_sell_order(context, ctx);
+	}
+
+	/* TODO */
 
 	/* Propagate the message. */
 	mq_send(context->outcoming, (char*) msg, sizeof(MeMessage), 1);
+}
+
+static inline void new_limit_buy(MeContext *context, MeSecurityContext *ctx, MeMessage *msg)
+{
+	/* Propagate the message. */
+	mq_send(context->outcoming, (char*) msg, sizeof(MeMessage), 1);
+}
+
+static inline void new_market_sell(MeContext *context, MeSecurityContext *ctx, MeMessage *msg)
+{
+	/* Propagate the message. */
+	mq_send(context->outcoming, (char*) msg, sizeof(MeMessage), 1);
+}
+
+static inline void new_limit_sell(MeContext *context, MeSecurityContext *ctx, MeMessage *msg)
+{
+	/* Propagate the message. */
+	mq_send(context->outcoming, (char*) msg, sizeof(MeMessage), 1);
+}
+
+static inline void new_order(MeContext *context, MeSecurityContext *ctx, MeMessage *msg)
+{
+	MeMessage to_send;
+	MeBook *book;
+	if (msg->order.side == B3_BUY) {
+		if (msg->order.ord_type == B3_ORD_MARKET)
+			new_market_buy(context, ctx, msg);
+		else
+			new_limit_buy(context, ctx, msg);
+	} else {
+		if (msg->order.ord_type == B3_ORD_MARKET)
+			new_market_sell(context, ctx, msg);
+		else
+			new_limit_sell(context, ctx, msg);
+	}
+
 }
 
 void *me_run(MeContext *context, void *paralell_job(void*), void *job_arg)
