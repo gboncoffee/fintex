@@ -22,7 +22,7 @@ typedef struct {
 	B3OrderID matched_id;
 } MeTrade;
 
-/* me_msg_type is set according to the B3MessageType send by the client, being
+/* msg_type is set according to the B3MessageType send by the client, being
  * it 102 for NEW and 105 for CANCEL. Otherwise it's one of the defined
  * below.
  *
@@ -66,7 +66,7 @@ typedef struct {
 typedef struct {
 	size_t used;
 	struct MeBook *next;
-	/* Size is MeContext.buf_size */
+	/* Size is MeContext.buf_size. In indexes, not bytes. */
 	MeOrder orders[];
 } MeBook;
 
