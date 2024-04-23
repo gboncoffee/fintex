@@ -1,6 +1,7 @@
 #ifndef __ME_HEADER
 #define __ME_HEADER
 
+#include <omp.h>
 #include <stdint.h>
 #include <mqueue.h>
 #include "../b3.h"
@@ -62,8 +63,9 @@ typedef struct {
 #define ME_MESSAGE_SET_MARKET_PRICE 255
 #define ME_MESSAGE_TRADE 254
 #define ME_MESSAGE_PANIC 253
+#define ME_MESSAGE_ORDER_EXECUTED 252
 
-typedef struct {
+typedef struct MeBook {
 	size_t used;
 	struct MeBook *next;
 	/* Size is MeContext.buf_size. In indexes, not bytes. */

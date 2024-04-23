@@ -30,8 +30,8 @@ static const char *help =
 	"The panic message ignores the security ID.\n"
 	"Examples:\n"
 	"$ %s 0 panic # to shutdown the engine\n"
-	"$ %s 3 order side=buy quantity=30 # buy 30 from security 3, market order\n"
-	"$ %s 5 order side=sell quantity=20 price=10 # sell 20 of security 5, limit of 10\n";
+	"$ %s 3 buy quantity=30 # buy 30 from security 3, market order\n"
+	"$ %s 5 sell quantity=20 price=10 # sell 20 of security 5, limit of 10\n";
 
 void build_order(MeMessage *message, char *argv[], int argc, B3Side side)
 {
