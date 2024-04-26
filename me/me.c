@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <mqueue.h>
@@ -182,16 +183,20 @@ static inline void remove_first_sell(MeContext *context, MeSecurityContext *ctx)
 	MeOrder tmp;
 
 	/* I don't know how to optimize this and keep it readable. */
-	size_t i = 0;
+	int64_t i = 0;
 	uint8_t swapped = 1;
 	do {
-		if (SELL_GREATER_THAN(book->orders[LEFT(i)], book->orders[i])) {
+		if (book->used > LEFT(i)
+			&& SELL_GREATER_THAN(book->orders[LEFT(i)],
+				book->orders[i]))
+		{
 			tmp = book->orders[i];
 			book->orders[i] = book->orders[LEFT(i)];
 			book->orders[LEFT(i)] = tmp;
 			i = LEFT(i);
-		} else if (SELL_GREATER_THAN(book->orders[RIGHT(i)],
-			book->orders[i]))
+		} else if (book->used > RIGHT(i)
+			&& SELL_GREATER_THAN(book->orders[RIGHT(i)],
+				book->orders[i]))
 		{
 			tmp = book->orders[i];
 			book->orders[i] = book->orders[RIGHT(i)];
@@ -209,20 +214,25 @@ static inline void remove_first_buy(MeContext *context, MeSecurityContext *ctx)
 	(void) context;
 
 	MeBook *book = ctx->buy;
+
 	book->orders[0] = book->orders[book->used - 1];
 	book->used--;
 	MeOrder tmp;
 
-	size_t i = 0;
+	int64_t i = 0;
 	uint8_t swapped = 1;
 	do {
-		if (BUY_GREATER_THAN(book->orders[LEFT(i)], book->orders[i])) {
+		if (book->used > LEFT(i)
+			&& BUY_GREATER_THAN(book->orders[LEFT(i)],
+				book->orders[i]))
+		{
 			tmp = book->orders[i];
 			book->orders[i] = book->orders[LEFT(i)];
 			book->orders[LEFT(i)] = tmp;
 			i = LEFT(i);
-		} else if (BUY_GREATER_THAN(book->orders[RIGHT(i)],
-			book->orders[i]))
+		} else if (book->used > RIGHT(i)
+			&& BUY_GREATER_THAN(book->orders[RIGHT(i)],
+				book->orders[i]))
 		{
 			tmp = book->orders[i];
 			book->orders[i] = book->orders[RIGHT(i)];
@@ -236,13 +246,12 @@ static inline void remove_first_buy(MeContext *context, MeSecurityContext *ctx)
 
 static inline void new_limit_buy(MeBook *book, MeOrder *order, size_t buf_size)
 {
-	size_t new_pos = book->used;
+	int64_t new_pos = book->used;
 	/* TODO: handle this. */
-	if (new_pos > buf_size)
+	if (((size_t) new_pos) > buf_size)
 		return;
 
-	size_t parent = PARENT(new_pos);
-	printf("new_pos: %lu parent: %lu\n", new_pos, parent);
+	int64_t parent = PARENT(new_pos);
 	/* PARENT(0) = 0. */
 	while (parent != new_pos
 		&& BUY_GREATER_THAN(*order, book->orders[parent]))
@@ -258,12 +267,12 @@ static inline void new_limit_buy(MeBook *book, MeOrder *order, size_t buf_size)
 
 static inline void new_limit_sell(MeBook *book, MeOrder *order, size_t buf_size)
 {
-	size_t new_pos = book->used;
+	int64_t new_pos = book->used;
 	/* TODO: handle this. */
-	if (new_pos > buf_size)
+	if (((size_t) new_pos) > buf_size)
 		return;
 
-	size_t parent = PARENT(new_pos);
+	int64_t parent = PARENT(new_pos);
 	/* PARENT(0) = 0. */
 	while (parent != new_pos
 		&& SELL_GREATER_THAN(*order, book->orders[parent]))
@@ -311,12 +320,14 @@ static inline void swipe_market_buy(MeContext *context,
 		}
 	}
 
-	msg->message.order.ord_type = ME_ORDER_LIMIT;
-	msg->message.order.price = ctx->market_price;
-	/* Propagate again as limit. */
-	sendmsg(context, msg);
+	if (new_aggressor_quantity > 0) {
+		msg->message.order.ord_type = ME_ORDER_LIMIT;
+		msg->message.order.price = ctx->market_price;
+		/* Propagate again as limit. */
+		sendmsg(context, msg);
 
-	new_limit_buy(ctx->buy, &msg->message.order, context->buf_size);
+		new_limit_buy(ctx->buy, &msg->message.order, context->buf_size);	
+	}
 }
 
 static inline void swipe_market_sell(MeContext
@@ -356,12 +367,14 @@ static inline void swipe_market_sell(MeContext
 		}
 	}
 
-	msg->message.order.ord_type = ME_ORDER_LIMIT;
-	msg->message.order.price = ctx->market_price;
-	/* Propagate again as limit. */
-	sendmsg(context, msg);
+	if (new_aggressor_quantity > 0) {
+		msg->message.order.ord_type = ME_ORDER_LIMIT;
+		msg->message.order.price = ctx->market_price;
+		/* Propagate again as limit. */
+		sendmsg(context, msg);
 
-	new_limit_sell(ctx->sell, &msg->message.order, context->buf_size);
+		new_limit_sell(ctx->sell, &msg->message.order, context->buf_size);
+	}
 }
 
 static inline void swipe_limit_buy(MeContext *context,
