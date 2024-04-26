@@ -7,7 +7,7 @@ CLIBS = -fopenmp
 CC_R = $(CC) $(CFLAGS) $(RFLAGS) $(CLIBS)
 CC_D = $(CC) $(CFLAGS) $(DFLAGS) $(CLIBS)
 
-.PHONY: all programs clean
+.PHONY: all programs clean format-workspace
 
 all: programs
 programs: me/me me/me-debug me/me-cli me/me-ascii-logger
@@ -29,3 +29,6 @@ clean:
 	-rm me/me-debug
 	-rm me/me-cli
 	-rm me/me-ascii-logger
+
+format-workspace:
+	./format-workspace.sh

@@ -75,7 +75,9 @@ typedef struct {
 	} message;
 } MeMessage;
 
-#define ME_MINIMUM_MEMORY(n_secs) (sizeof(MeContext) + n_secs*(sizeof(MeSecurityContext) + sizeof(MeOrder)))
+#define ME_MINIMUM_MEMORY(n_secs) \
+	(sizeof(MeContext) +      \
+	 n_secs * (sizeof(MeSecurityContext) + sizeof(MeOrder)))
 
 /* "Server" (engine) side. */
 
@@ -127,8 +129,8 @@ typedef struct {
  *     }
  */
 MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t));
-void me_dealloc_context(MeContext *context, void deallocate(void*));
-void *me_run(MeContext *context, void *paralell_job(void*), void *job_arg);
+void me_dealloc_context(MeContext *context, void deallocate(void *));
+void *me_run(MeContext *context, void *paralell_job(void *), void *job_arg);
 
 /* "Client" side. */
 

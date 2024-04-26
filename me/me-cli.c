@@ -44,12 +44,14 @@ void build_order(MeMessage *message, char *argv[], int argc, MeSide side)
 		perror("Order build failed due to failure in retrieving timestamp");
 		exit(1);
 	}
-	message->message.order.timestamp = (MeTimestamp) time.tv_nsec;
+	message->message.order.timestamp = (MeTimestamp)time.tv_nsec;
 
 	for (int i = 3; i < argc; i++) {
-		if (sscanf(argv[i], "quantity=%lu", (unsigned long*) &message->message.order.quantity))
+		if (sscanf(argv[i], "quantity=%lu",
+			   (unsigned long *)&message->message.order.quantity))
 			continue;
-		if (sscanf(argv[i], "price=%lu", (unsigned long*) &message->message.order.price))
+		if (sscanf(argv[i], "price=%lu",
+			   (unsigned long *)&message->message.order.price))
 			continue;
 	}
 
@@ -65,7 +67,8 @@ void build_set_price(MeMessage *message, char *argv[], int argc)
 	message->message.set_market_price = 0;
 
 	for (int i = 3; i < argc; i++) {
-		if (sscanf(argv[i], "price=%lu", (unsigned long*) &message->message.set_market_price))
+		if (sscanf(argv[i], "price=%lu",
+			   (unsigned long *)&message->message.set_market_price))
 			continue;
 	}
 }
@@ -76,12 +79,14 @@ void build_cancel(MeMessage *message, char *argv[], int argc)
 	message->message.to_cancel = 0;
 
 	for (int i = 3; i < argc; i++) {
-		if (sscanf(argv[i], "id=%u", (unsigned int*) &message->message.to_cancel))
+		if (sscanf(argv[i], "id=%u",
+			   (unsigned int *)&message->message.to_cancel))
 			continue;
 	}
 
 	if (message->message.to_cancel == 0) {
-		fprintf(stderr, "Refusing to send cancellation order to ID 0\n");
+		fprintf(stderr,
+			"Refusing to send cancellation order to ID 0\n");
 		exit(1);
 	}
 }
@@ -120,8 +125,10 @@ int main(int argc, char *argv[])
 	}
 
 	if (me_client_init_context(&context) != 0) {
-		fprintf(stderr, "Could not init client context. Is the engine running?\n");
-		fprintf(stderr, "Opening queues %s and %s failed ", me_in_queue_name, me_out_queue_name);
+		fprintf(stderr,
+			"Could not init client context. Is the engine running?\n");
+		fprintf(stderr, "Opening queues %s and %s failed ",
+			me_in_queue_name, me_out_queue_name);
 		perror("with");
 		return errno;
 	}

@@ -29,13 +29,9 @@ MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t))
 	context->n_securities = n_secs;
 
 	/* Create a dumb queue to get the attributes. */
-	if ((dumb_q = mq_open("/fintexmedumb",
-		O_CREAT|O_RDWR|O_NONBLOCK,
-		0777,
-		NULL))
-		== -1)
-	{
-		return context;		
+	if ((dumb_q = mq_open("/fintexmedumb", O_CREAT | O_RDWR | O_NONBLOCK,
+			      0777, NULL)) == -1) {
+		return context;
 	}
 
 	mq_getattr(dumb_q, &qattr);
@@ -43,39 +39,32 @@ MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t))
 	mq_unlink("/fintexmedumb");
 	qattr.mq_msgsize = sizeof(MeMessage);
 
-	if ((context->incoming = mq_open(me_in_queue_name,
-		O_CREAT|O_RDWR,
-		0777,
-		&qattr))
-		== -1)
-	{
-		return context;		
+	if ((context->incoming = mq_open(me_in_queue_name, O_CREAT | O_RDWR,
+					 0777, &qattr)) == -1) {
+		return context;
 	}
-	if ((context->outcoming = mq_open(me_out_queue_name,
-		O_CREAT|O_RDWR,
-		0777,
-		&qattr))
-		== -1)
-	{
-		return context;		
+	if ((context->outcoming = mq_open(me_out_queue_name, O_CREAT | O_RDWR,
+					  0777, &qattr)) == -1) {
+		return context;
 	}
 
-	size_t headers_s = sizeof(MeContext) + n_secs*sizeof(MeSecurityContext);
+	size_t headers_s =
+		sizeof(MeContext) + n_secs * sizeof(MeSecurityContext);
 	size_t full_book_s = (l2_s - headers_s) / (2 * n_secs);
 	context->buf_size = (full_book_s - sizeof(MeBook)) / sizeof(MeOrder);
-	context->contexts = (MeSecurityContext*)
-		(((size_t) context) + sizeof(MeContext));
+	context->contexts =
+		(MeSecurityContext *)(((size_t)context) + sizeof(MeContext));
 
-	register MeBook *book = (MeBook*) (((size_t) context) + headers_s);
+	register MeBook *book = (MeBook *)(((size_t)context) + headers_s);
 
 	/* Init first security context. */
 	context->contexts[0].market_price = 0;
 	omp_init_lock(&context->contexts[0].lock);
 
 	context->contexts[0].buy = book;
-	book = (MeBook*) (((size_t) context->contexts[0].buy) + full_book_s);
+	book = (MeBook *)(((size_t)context->contexts[0].buy) + full_book_s);
 	context->contexts[0].sell = book;
-	book = (MeBook*) (((size_t) context->contexts[0].sell) + full_book_s);
+	book = (MeBook *)(((size_t)context->contexts[0].sell) + full_book_s);
 
 	context->contexts[0].buy->used = 0;
 	context->contexts[0].sell->used = 0;
@@ -88,11 +77,11 @@ MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t))
 		omp_init_lock(&context->contexts[i].lock);
 
 		context->contexts[i].buy = book;
-		book = (MeBook*)
-			(((size_t) context->contexts[i].buy) + full_book_s);
+		book = (MeBook *)(((size_t)context->contexts[i].buy) +
+				  full_book_s);
 		context->contexts[i].sell = book;
-		book = (MeBook*)
-			(((size_t) context->contexts[i].sell) + full_book_s);
+		book = (MeBook *)(((size_t)context->contexts[i].sell) +
+				  full_book_s);
 
 		context->contexts[i].buy->used = 0;
 		context->contexts[i].sell->used = 0;
@@ -103,7 +92,7 @@ MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t))
 	return context;
 }
 
-void me_dealloc_context(MeContext *context, void deallocate(void*))
+void me_dealloc_context(MeContext *context, void deallocate(void *))
 {
 	mq_close(context->incoming);
 	mq_close(context->outcoming);
@@ -117,11 +106,10 @@ void me_dealloc_context(MeContext *context, void deallocate(void*))
 }
 
 #define sendmsg(context, msg) \
-	(mq_send((context)->outcoming, (char*) (msg), sizeof(MeMessage), 1))
+	(mq_send((context)->outcoming, (char *)(msg), sizeof(MeMessage), 1))
 
-static inline void set_market_price(MeContext *context,
-	MeSecurityContext *ctx,
-	MeMessage *msg)
+static inline void set_market_price(MeContext *context, MeSecurityContext *ctx,
+				    MeMessage *msg)
 {
 	omp_set_lock(&ctx->lock);
 	ctx->market_price = msg->message.set_market_price;
@@ -130,21 +118,20 @@ static inline void set_market_price(MeContext *context,
 	sendmsg(context, msg);
 }
 
-#define LEFT(a) (2*(a) + 1)
-#define RIGHT(a) (2*(a) + 2)
+#define LEFT(a) (2 * (a) + 1)
+#define RIGHT(a) (2 * (a) + 2)
 #define PARENT(a) (((a) - ((a) + 1) % 2) / 2)
 
-#define BUY_GREATER_THAN(a, b) ((a).price > (b).price \
-	|| ((a).price == (b).price && (a).timestamp < (b).timestamp))
-#define SELL_GREATER_THAN(a, b) ((a).price < (b).price \
-	|| ((a).price == (b).price && (a).timestamp < (b).timestamp))
+#define BUY_GREATER_THAN(a, b)    \
+	((a).price > (b).price || \
+	 ((a).price == (b).price && (a).timestamp < (b).timestamp))
+#define SELL_GREATER_THAN(a, b)   \
+	((a).price < (b).price || \
+	 ((a).price == (b).price && (a).timestamp < (b).timestamp))
 
-static inline void trade(MeContext *context,
-	MeSecurityContext *ctx,
-	MeOrder *aggressor,
-	MeOrder *other,
-	size_t id,
-	int64_t price)
+static inline void trade(MeContext *context, MeSecurityContext *ctx,
+			 MeOrder *aggressor, MeOrder *other, size_t id,
+			 int64_t price)
 {
 	MeMessage send;
 	int64_t last_price = ctx->market_price;
@@ -175,7 +162,7 @@ static inline void order_executed(MeContext *context, MeOrder *order, size_t id)
 static inline void remove_first_sell(MeContext *context, MeSecurityContext *ctx)
 {
 	/* TODO: next books. */
-	(void) context;
+	(void)context;
 
 	MeBook *book = ctx->sell;
 	book->orders[0] = book->orders[book->used - 1];
@@ -186,18 +173,15 @@ static inline void remove_first_sell(MeContext *context, MeSecurityContext *ctx)
 	int64_t i = 0;
 	uint8_t swapped = 1;
 	do {
-		if (book->used > LEFT(i)
-			&& SELL_GREATER_THAN(book->orders[LEFT(i)],
-				book->orders[i]))
-		{
+		if (book->used > LEFT(i) &&
+		    SELL_GREATER_THAN(book->orders[LEFT(i)], book->orders[i])) {
 			tmp = book->orders[i];
 			book->orders[i] = book->orders[LEFT(i)];
 			book->orders[LEFT(i)] = tmp;
 			i = LEFT(i);
-		} else if (book->used > RIGHT(i)
-			&& SELL_GREATER_THAN(book->orders[RIGHT(i)],
-				book->orders[i]))
-		{
+		} else if (book->used > RIGHT(i) &&
+			   SELL_GREATER_THAN(book->orders[RIGHT(i)],
+					     book->orders[i])) {
 			tmp = book->orders[i];
 			book->orders[i] = book->orders[RIGHT(i)];
 			book->orders[RIGHT(i)] = tmp;
@@ -211,7 +195,7 @@ static inline void remove_first_sell(MeContext *context, MeSecurityContext *ctx)
 static inline void remove_first_buy(MeContext *context, MeSecurityContext *ctx)
 {
 	/* TODO: next books. */
-	(void) context;
+	(void)context;
 
 	MeBook *book = ctx->buy;
 
@@ -222,18 +206,15 @@ static inline void remove_first_buy(MeContext *context, MeSecurityContext *ctx)
 	int64_t i = 0;
 	uint8_t swapped = 1;
 	do {
-		if (book->used > LEFT(i)
-			&& BUY_GREATER_THAN(book->orders[LEFT(i)],
-				book->orders[i]))
-		{
+		if (book->used > LEFT(i) &&
+		    BUY_GREATER_THAN(book->orders[LEFT(i)], book->orders[i])) {
 			tmp = book->orders[i];
 			book->orders[i] = book->orders[LEFT(i)];
 			book->orders[LEFT(i)] = tmp;
 			i = LEFT(i);
-		} else if (book->used > RIGHT(i)
-			&& BUY_GREATER_THAN(book->orders[RIGHT(i)],
-				book->orders[i]))
-		{
+		} else if (book->used > RIGHT(i) &&
+			   BUY_GREATER_THAN(book->orders[RIGHT(i)],
+					    book->orders[i])) {
 			tmp = book->orders[i];
 			book->orders[i] = book->orders[RIGHT(i)];
 			book->orders[RIGHT(i)] = tmp;
@@ -248,14 +229,13 @@ static inline void new_limit_buy(MeBook *book, MeOrder *order, size_t buf_size)
 {
 	int64_t new_pos = book->used;
 	/* TODO: handle this. */
-	if (((size_t) new_pos) > buf_size)
+	if (((size_t)new_pos) > buf_size)
 		return;
 
 	int64_t parent = PARENT(new_pos);
 	/* PARENT(0) = 0. */
-	while (parent != new_pos
-		&& BUY_GREATER_THAN(*order, book->orders[parent]))
-	{
+	while (parent != new_pos &&
+	       BUY_GREATER_THAN(*order, book->orders[parent])) {
 		book->orders[new_pos] = book->orders[parent];
 		new_pos = parent;
 		parent = PARENT(new_pos);
@@ -269,14 +249,13 @@ static inline void new_limit_sell(MeBook *book, MeOrder *order, size_t buf_size)
 {
 	int64_t new_pos = book->used;
 	/* TODO: handle this. */
-	if (((size_t) new_pos) > buf_size)
+	if (((size_t)new_pos) > buf_size)
 		return;
 
 	int64_t parent = PARENT(new_pos);
 	/* PARENT(0) = 0. */
-	while (parent != new_pos
-		&& SELL_GREATER_THAN(*order, book->orders[parent]))
-	{
+	while (parent != new_pos &&
+	       SELL_GREATER_THAN(*order, book->orders[parent])) {
 		book->orders[new_pos] = book->orders[parent];
 		new_pos = parent;
 		parent = PARENT(new_pos);
@@ -286,9 +265,8 @@ static inline void new_limit_sell(MeBook *book, MeOrder *order, size_t buf_size)
 	book->used++;
 }
 
-static inline void swipe_market_buy(MeContext *context,
-	MeSecurityContext *ctx,
-	MeMessage *msg)
+static inline void swipe_market_buy(MeContext *context, MeSecurityContext *ctx,
+				    MeMessage *msg)
 {
 	int64_t new_aggressor_quantity = msg->message.order.quantity;
 	/* Propagate the new order message. */
@@ -299,23 +277,19 @@ static inline void swipe_market_buy(MeContext *context,
 		int64_t new_matched_quantity = ctx->sell->orders[0].quantity;
 		new_aggressor_quantity -= new_matched_quantity;
 		new_matched_quantity -= msg->message.order.quantity;
-		trade(context,
-			ctx,
-			&msg->message.order,
-			&ctx->sell->orders[0],
-			msg->security_id,
-			ctx->sell->orders[0].price);
+		trade(context, ctx, &msg->message.order, &ctx->sell->orders[0],
+		      msg->security_id, ctx->sell->orders[0].price);
 		msg->message.order.quantity = new_aggressor_quantity;
 		ctx->sell->orders[0].quantity = new_matched_quantity;
 
 		if (new_matched_quantity <= 0) {
 			order_executed(context, &ctx->sell->orders[0],
-				msg->security_id);
+				       msg->security_id);
 			remove_first_sell(context, ctx);
-		/* new_aggressor_quantity <= 0 */
+			/* new_aggressor_quantity <= 0 */
 		} else {
 			order_executed(context, &msg->message.order,
-				msg->security_id);
+				       msg->security_id);
 			return;
 		}
 	}
@@ -326,14 +300,12 @@ static inline void swipe_market_buy(MeContext *context,
 		/* Propagate again as limit. */
 		sendmsg(context, msg);
 
-		new_limit_buy(ctx->buy, &msg->message.order, context->buf_size);	
+		new_limit_buy(ctx->buy, &msg->message.order, context->buf_size);
 	}
 }
 
-static inline void swipe_market_sell(MeContext
-	*context,
-	MeSecurityContext *ctx,
-	MeMessage *msg)
+static inline void swipe_market_sell(MeContext *context, MeSecurityContext *ctx,
+				     MeMessage *msg)
 {
 	int64_t new_aggressor_quantity = msg->message.order.quantity;
 	/* Propagate the new order message. */
@@ -344,25 +316,19 @@ static inline void swipe_market_sell(MeContext
 		int64_t new_matched_quantity = ctx->buy->orders[0].quantity;
 		new_aggressor_quantity -= new_matched_quantity;
 		new_matched_quantity -= msg->message.order.quantity;
-		trade(context,
-			ctx,
-			&msg->message.order,
-			&ctx->buy->orders[0],
-			msg->security_id,
-			ctx->buy->orders[0].price);
+		trade(context, ctx, &msg->message.order, &ctx->buy->orders[0],
+		      msg->security_id, ctx->buy->orders[0].price);
 		msg->message.order.quantity = new_aggressor_quantity;
 		ctx->buy->orders[0].quantity = new_matched_quantity;
 
 		if (new_matched_quantity <= 0) {
-			order_executed(context,
-				&ctx->buy->orders[0],
-				msg->security_id);
+			order_executed(context, &ctx->buy->orders[0],
+				       msg->security_id);
 			remove_first_buy(context, ctx);
-		/* new_aggressor_quantity <= 0 */
+			/* new_aggressor_quantity <= 0 */
 		} else {
-			order_executed(context,
-				&msg->message.order,
-				msg->security_id);
+			order_executed(context, &msg->message.order,
+				       msg->security_id);
 			return;
 		}
 	}
@@ -373,41 +339,36 @@ static inline void swipe_market_sell(MeContext
 		/* Propagate again as limit. */
 		sendmsg(context, msg);
 
-		new_limit_sell(ctx->sell, &msg->message.order, context->buf_size);
+		new_limit_sell(ctx->sell, &msg->message.order,
+			       context->buf_size);
 	}
 }
 
-static inline void swipe_limit_buy(MeContext *context,
-	MeSecurityContext *ctx,
-	MeMessage *msg)
+static inline void swipe_limit_buy(MeContext *context, MeSecurityContext *ctx,
+				   MeMessage *msg)
 {
 	int64_t new_aggressor_quantity = msg->message.order.quantity;
 	/* Propagate the new order message. */
 	sendmsg(context, msg);
 
-	while (ctx->sell->used > 0
-		&& msg->message.order.price >= ctx->sell->orders[0].price)
-	{
+	while (ctx->sell->used > 0 &&
+	       msg->message.order.price >= ctx->sell->orders[0].price) {
 		int64_t new_matched_quantity = ctx->sell->orders[0].quantity;
 		new_aggressor_quantity -= new_matched_quantity;
 		new_matched_quantity -= msg->message.order.quantity;
-		trade(context,
-			ctx,
-			&msg->message.order,
-			&ctx->sell->orders[0],
-			msg->security_id,
-			ctx->sell->orders[0].price);
+		trade(context, ctx, &msg->message.order, &ctx->sell->orders[0],
+		      msg->security_id, ctx->sell->orders[0].price);
 		msg->message.order.quantity = new_aggressor_quantity;
 		ctx->sell->orders[0].quantity = new_matched_quantity;
 
 		if (new_matched_quantity <= 0) {
 			order_executed(context, &ctx->sell->orders[0],
-				msg->security_id);
+				       msg->security_id);
 			remove_first_sell(context, ctx);
-		/* new_aggressor_quantity <= 0 */
+			/* new_aggressor_quantity <= 0 */
 		} else {
 			order_executed(context, &msg->message.order,
-				msg->security_id);
+				       msg->security_id);
 			return;
 		}
 	}
@@ -416,48 +377,41 @@ static inline void swipe_limit_buy(MeContext *context,
 	new_limit_buy(ctx->buy, &msg->message.order, context->buf_size);
 }
 
-static inline void swipe_limit_sell(MeContext *context,
-	MeSecurityContext *ctx,
-	MeMessage *msg)
+static inline void swipe_limit_sell(MeContext *context, MeSecurityContext *ctx,
+				    MeMessage *msg)
 {
 	int64_t new_aggressor_quantity = msg->message.order.quantity;
 	/* Propagate the new order message. */
 	sendmsg(context, msg);
 
-	while (ctx->buy->used > 0
-		&& msg->message.order.price <= ctx->buy->orders[0].price)
-	{
+	while (ctx->buy->used > 0 &&
+	       msg->message.order.price <= ctx->buy->orders[0].price) {
 		int64_t new_matched_quantity = ctx->buy->orders[0].quantity;
 		new_aggressor_quantity -= new_matched_quantity;
 		new_matched_quantity -= msg->message.order.quantity;
-		trade(context,
-			ctx,
-			&msg->message.order,
-			&ctx->buy->orders[0],
-			msg->security_id,
-			ctx->buy->orders[0].price);
+		trade(context, ctx, &msg->message.order, &ctx->buy->orders[0],
+		      msg->security_id, ctx->buy->orders[0].price);
 		msg->message.order.quantity = new_aggressor_quantity;
 		ctx->buy->orders[0].quantity = new_matched_quantity;
 
 		if (new_matched_quantity <= 0) {
 			order_executed(context, &ctx->buy->orders[0],
-				msg->security_id);
+				       msg->security_id);
 			remove_first_buy(context, ctx);
-		/* new_aggressor_quantity <= 0 */
+			/* new_aggressor_quantity <= 0 */
 		} else {
 			order_executed(context, &msg->message.order,
-				msg->security_id);
+				       msg->security_id);
 			return;
 		}
 	}
 
 	/* Don't need to propagate again. */
-	new_limit_sell(ctx->sell, &msg->message.order, context->buf_size);	
+	new_limit_sell(ctx->sell, &msg->message.order, context->buf_size);
 }
 
-static inline void new_order(MeContext *context,
-	MeSecurityContext *ctx,
-	MeMessage *msg)
+static inline void new_order(MeContext *context, MeSecurityContext *ctx,
+			     MeMessage *msg)
 {
 	omp_set_lock(&ctx->lock);
 	if (msg->message.order.side == ME_SIDE_BUY) {
@@ -474,7 +428,7 @@ static inline void new_order(MeContext *context,
 	omp_unset_lock(&ctx->lock);
 }
 
-void *me_run(MeContext *context, void *paralell_job(void*), void *job_arg)
+void *me_run(MeContext *context, void *paralell_job(void *), void *job_arg)
 {
 	void *r = NULL;
 	MeMessage msg;
@@ -482,19 +436,17 @@ void *me_run(MeContext *context, void *paralell_job(void*), void *job_arg)
 	MeSecurityContext *ctx;
 
 	if (paralell_job != NULL) {
-		#pragma omp task
+#pragma omp task
 		{
 			r = paralell_job(job_arg);
 		}
 	}
 
-	#pragma omp parallel private(msg, p, ctx)
+#pragma omp parallel private(msg, p, ctx)
 	{
 		do {
-			mq_receive(context->incoming,
-				(char*) &msg,
-				sizeof(MeMessage),
-				&p);
+			mq_receive(context->incoming, (char *)&msg,
+				   sizeof(MeMessage), &p);
 			if (msg.security_id < context->n_securities) {
 				ctx = &context->contexts[msg.security_id];
 				switch (msg.msg_type) {
@@ -504,13 +456,13 @@ void *me_run(MeContext *context, void *paralell_job(void*), void *job_arg)
 				case ME_MESSAGE_NEW_ORDER:
 					new_order(context, ctx, &msg);
 					break;
-                                case ME_MESSAGE_CANCEL_ORDER:
-                                case ME_MESSAGE_TRADE:
-                                case ME_MESSAGE_ORDER_EXECUTED:
-                                case ME_MESSAGE_PANIC:
-                                	break;
-                                }
-                        }
+				case ME_MESSAGE_CANCEL_ORDER:
+				case ME_MESSAGE_TRADE:
+				case ME_MESSAGE_ORDER_EXECUTED:
+				case ME_MESSAGE_PANIC:
+					break;
+				}
+			}
 		} while (msg.msg_type != ME_MESSAGE_PANIC);
 
 		/* Send a panic to the next thread. */
@@ -541,14 +493,14 @@ void me_client_close_context(MeClientContext *context)
 
 int me_client_send_message(MeClientContext *context, MeMessage *message)
 {
-	mq_send(context->incoming, (char *) message, sizeof(MeMessage), 1);
+	mq_send(context->incoming, (char *)message, sizeof(MeMessage), 1);
 	return errno;
 }
 
 int me_client_get_message(MeClientContext *context, MeMessage *message)
 {
 	unsigned int _p;
-	mq_receive(context->outcoming, (char*) message, sizeof(MeMessage), &_p);
+	mq_receive(context->outcoming, (char *)message, sizeof(MeMessage), &_p);
 	return errno;
 }
 
@@ -578,20 +530,17 @@ static const char *help =
 
 int main(int argc, char *argv[])
 {
-	size_t l2_s = 1024*1024*1024 + 512*1024*1024;
+	size_t l2_s = 1024 * 1024 * 1024 + 512 * 1024 * 1024;
 	size_t n_securities = 400;
 
 	for (int i = 1; i < argc; i++) {
-		if (sscanf(argv[i], "-c=%zu", &l2_s) == 1
-			|| sscanf(argv[i], "--cache-size=%zu", &l2_s) == 1
-			|| sscanf(argv[i], "-s=%zu", &n_securities) == 1
-			|| sscanf(argv[i], "--securities=%zu", &n_securities)
-				== 1)
-		{
+		if (sscanf(argv[i], "-c=%zu", &l2_s) == 1 ||
+		    sscanf(argv[i], "--cache-size=%zu", &l2_s) == 1 ||
+		    sscanf(argv[i], "-s=%zu", &n_securities) == 1 ||
+		    sscanf(argv[i], "--securities=%zu", &n_securities) == 1) {
 			continue;
-		} else if (strcmp(argv[i], "-h") == 0
-			|| strcmp(argv[i], "--help") == 0)
-		{
+		} else if (strcmp(argv[i], "-h") == 0 ||
+			   strcmp(argv[i], "--help") == 0) {
 			printf(help, argv[0]);
 			return 0;
 		}
@@ -602,15 +551,13 @@ int main(int argc, char *argv[])
 		if (errno == 33) {
 			fprintf(stderr,
 				"No enough memory set for security amount. Minimum of %zu, configured %zu\n",
-				ME_MINIMUM_MEMORY(n_securities),
-				l2_s);
+				ME_MINIMUM_MEMORY(n_securities), l2_s);
 		}
 
 		return errno;
 	}
 	printf("Booting engine with %zu of cache size and %zu securities.\n",
-		l2_s,
-		n_securities);
+	       l2_s, n_securities);
 	me_run(context, NULL, NULL);
 	me_dealloc_context(context, free);
 
