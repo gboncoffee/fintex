@@ -28,5 +28,4 @@ clean:
 	-rm me/me
 	-rm me/me-debug
 	-rm me/me-cli
-	-rm me/me-cli-debug
 	-rm me/me-ascii-logger
