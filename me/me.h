@@ -4,30 +4,51 @@
 #include <omp.h>
 #include <stdint.h>
 #include <mqueue.h>
-#include "../b3.h"
 
 static const char *me_in_queue_name = "/fintexmeincoming";
 static const char *me_out_queue_name = "/fintexmeoutcoming";
 
+typedef enum {
+	ME_SIDE_BUY,
+	ME_SIDE_SELL,
+} MeSide;
+
+typedef enum {
+	ME_ORDER_MARKET,
+	ME_ORDER_LIMIT,
+} MeOrderType;
+
+typedef enum {
+	ME_MESSAGE_NEW_ORDER,
+	ME_MESSAGE_CANCEL_ORDER,
+	ME_MESSAGE_SET_MARKET_PRICE,
+	ME_MESSAGE_TRADE,
+	ME_MESSAGE_ORDER_EXECUTED,
+	ME_MESSAGE_PANIC,
+} MeMessageType;
+
+/* Nanossecond precision. */
+typedef uint64_t MeTimestamp;
+
+/* The engine itself does not use it except for cancelling orders. The clients
+ * should set it and guarantee they're unique. */
+typedef uint64_t MeOrderID;
+
 typedef struct {
-	B3Side side;
-	B3Quantity quantity;
-	B3OrdType ord_type;
-	B3Price price;
-	B3OrderID order_id;
-	B3UTCTimestampNanos timestamp;
+	MeSide side;
+	int64_t quantity;
+	MeOrderType ord_type;
+	int64_t price;
+	MeOrderID order_id;
+	MeTimestamp timestamp;
 } MeOrder;
 
 typedef struct {
 	MeOrder aggressor;
-	B3OrderID matched_id;
+	MeOrderID matched_id;
 } MeTrade;
 
-/* msg_type is set according to the B3MessageType send by the client, being
- * it 102 for NEW and 105 for CANCEL. Otherwise it's one of the defined
- * below.
- *
- * NEW, CANCEL and SET_MARKET_PRICE are received by the matching engine and
+/* NEW, CANCEL and SET_MARKET_PRICE are received by the matching engine and
  * propagated. SET_MARKET_PRICE is also used by the engine to inform a change in
  * the market price. TRADE is only used by the engine to inform a trade event
  * (i.e., orders matched). The TRADE DOES NOT IMPLY a cancellation of orders.
@@ -44,13 +65,13 @@ typedef struct {
  * identified by the matched_id should have it's own quantity updated to 100
  * (300 - 200). */
 typedef struct {
-	B3MessageType msg_type;
-	B3SecurityID security_id;
+	MeMessageType msg_type;
+	size_t security_id;
 	union {
 		MeOrder order;
-		B3Price set_market_price;
+		int64_t set_market_price;
 		MeTrade trade;
-		B3OrderID to_cancel;
+		MeOrderID to_cancel;
 	} message;
 } MeMessage;
 
@@ -58,15 +79,9 @@ typedef struct {
 
 /* "Server" (engine) side. */
 
-/* There's no guarantee this will not conflict with other message types in the
- * future. */
-#define ME_MESSAGE_SET_MARKET_PRICE 255
-#define ME_MESSAGE_TRADE 254
-#define ME_MESSAGE_PANIC 253
-#define ME_MESSAGE_ORDER_EXECUTED 252
-
 typedef struct MeBook {
-	size_t used;
+	/* An int64_t for convenience. Signed indexes are such a great idea. */
+	int64_t used;
 	struct MeBook *next;
 	/* Size is MeContext.buf_size. In indexes, not bytes. */
 	MeOrder orders[];
@@ -75,7 +90,7 @@ typedef struct MeBook {
 typedef struct {
 	MeBook *buy;
 	MeBook *sell;
-	B3Price market_price;
+	int64_t market_price;
 	omp_lock_t lock;
 } MeSecurityContext;
 

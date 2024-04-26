@@ -93,8 +93,8 @@ MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t))
 		book = (MeBook*)
 			(((size_t) context->contexts[i].sell) + full_book_s);
 
-		context->contexts[i].buy->used = i;
-		context->contexts[i].sell->used = i;
+		context->contexts[i].buy->used = 0;
+		context->contexts[i].sell->used = 0;
 		context->contexts[i].buy->next = NULL;
 		context->contexts[i].sell->next = NULL;
 	}
@@ -142,11 +142,11 @@ static inline void trade(MeContext *context,
 	MeSecurityContext *ctx,
 	MeOrder *aggressor,
 	MeOrder *other,
-	B3SecurityID id,
-	B3Price price)
+	size_t id,
+	int64_t price)
 {
 	MeMessage send;
-	B3Price last_price = ctx->market_price;
+	int64_t last_price = ctx->market_price;
 	ctx->market_price = price;
 
 	send.msg_type = ME_MESSAGE_TRADE;
@@ -162,7 +162,7 @@ static inline void trade(MeContext *context,
 	}
 }
 
-static inline void order_executed(MeContext *context, MeOrder *order, B3SecurityID id)
+static inline void order_executed(MeContext *context, MeOrder *order, size_t id)
 {
 	MeMessage to_send;
 	to_send.msg_type = ME_MESSAGE_ORDER_EXECUTED;
@@ -173,6 +173,9 @@ static inline void order_executed(MeContext *context, MeOrder *order, B3Security
 
 static inline void remove_first_sell(MeContext *context, MeSecurityContext *ctx)
 {
+	/* TODO: next books. */
+	(void) context;
+
 	MeBook *book = ctx->sell;
 	book->orders[0] = book->orders[book->used - 1];
 	book->used--;
@@ -202,6 +205,9 @@ static inline void remove_first_sell(MeContext *context, MeSecurityContext *ctx)
 
 static inline void remove_first_buy(MeContext *context, MeSecurityContext *ctx)
 {
+	/* TODO: next books. */
+	(void) context;
+
 	MeBook *book = ctx->buy;
 	book->orders[0] = book->orders[book->used - 1];
 	book->used--;
@@ -236,6 +242,7 @@ static inline void new_limit_buy(MeBook *book, MeOrder *order, size_t buf_size)
 		return;
 
 	size_t parent = PARENT(new_pos);
+	printf("new_pos: %lu parent: %lu\n", new_pos, parent);
 	/* PARENT(0) = 0. */
 	while (parent != new_pos
 		&& BUY_GREATER_THAN(*order, book->orders[parent]))
@@ -274,13 +281,13 @@ static inline void swipe_market_buy(MeContext *context,
 	MeSecurityContext *ctx,
 	MeMessage *msg)
 {
-	B3Quantity new_aggressor_quantity = msg->message.order.quantity;
+	int64_t new_aggressor_quantity = msg->message.order.quantity;
 	/* Propagate the new order message. */
 	sendmsg(context, msg);
 
 	/* Book swipe. */
 	while (ctx->sell->used > 0) {
-		B3Quantity new_matched_quantity = ctx->sell->orders[0].quantity;
+		int64_t new_matched_quantity = ctx->sell->orders[0].quantity;
 		new_aggressor_quantity -= new_matched_quantity;
 		new_matched_quantity -= msg->message.order.quantity;
 		trade(context,
@@ -304,7 +311,7 @@ static inline void swipe_market_buy(MeContext *context,
 		}
 	}
 
-	msg->message.order.ord_type = B3_ORD_LIMIT;
+	msg->message.order.ord_type = ME_ORDER_LIMIT;
 	msg->message.order.price = ctx->market_price;
 	/* Propagate again as limit. */
 	sendmsg(context, msg);
@@ -317,13 +324,13 @@ static inline void swipe_market_sell(MeContext
 	MeSecurityContext *ctx,
 	MeMessage *msg)
 {
-	B3Quantity new_aggressor_quantity = msg->message.order.quantity;
+	int64_t new_aggressor_quantity = msg->message.order.quantity;
 	/* Propagate the new order message. */
 	sendmsg(context, msg);
 
 	/* Book swipe. */
 	while (ctx->buy->used > 0) {
-		B3Quantity new_matched_quantity = ctx->buy->orders[0].quantity;
+		int64_t new_matched_quantity = ctx->buy->orders[0].quantity;
 		new_aggressor_quantity -= new_matched_quantity;
 		new_matched_quantity -= msg->message.order.quantity;
 		trade(context,
@@ -349,7 +356,7 @@ static inline void swipe_market_sell(MeContext
 		}
 	}
 
-	msg->message.order.ord_type = B3_ORD_LIMIT;
+	msg->message.order.ord_type = ME_ORDER_LIMIT;
 	msg->message.order.price = ctx->market_price;
 	/* Propagate again as limit. */
 	sendmsg(context, msg);
@@ -361,14 +368,14 @@ static inline void swipe_limit_buy(MeContext *context,
 	MeSecurityContext *ctx,
 	MeMessage *msg)
 {
-	B3Quantity new_aggressor_quantity = msg->message.order.quantity;
+	int64_t new_aggressor_quantity = msg->message.order.quantity;
 	/* Propagate the new order message. */
 	sendmsg(context, msg);
 
 	while (ctx->sell->used > 0
 		&& msg->message.order.price >= ctx->sell->orders[0].price)
 	{
-		B3Quantity new_matched_quantity = ctx->sell->orders[0].quantity;
+		int64_t new_matched_quantity = ctx->sell->orders[0].quantity;
 		new_aggressor_quantity -= new_matched_quantity;
 		new_matched_quantity -= msg->message.order.quantity;
 		trade(context,
@@ -400,14 +407,14 @@ static inline void swipe_limit_sell(MeContext *context,
 	MeSecurityContext *ctx,
 	MeMessage *msg)
 {
-	B3Quantity new_aggressor_quantity = msg->message.order.quantity;
+	int64_t new_aggressor_quantity = msg->message.order.quantity;
 	/* Propagate the new order message. */
 	sendmsg(context, msg);
 
 	while (ctx->buy->used > 0
 		&& msg->message.order.price <= ctx->buy->orders[0].price)
 	{
-		B3Quantity new_matched_quantity = ctx->buy->orders[0].quantity;
+		int64_t new_matched_quantity = ctx->buy->orders[0].quantity;
 		new_aggressor_quantity -= new_matched_quantity;
 		new_matched_quantity -= msg->message.order.quantity;
 		trade(context,
@@ -440,13 +447,13 @@ static inline void new_order(MeContext *context,
 	MeMessage *msg)
 {
 	omp_set_lock(&ctx->lock);
-	if (msg->message.order.side == B3_BUY) {
-		if (msg->message.order.ord_type == B3_ORD_MARKET)
+	if (msg->message.order.side == ME_SIDE_BUY) {
+		if (msg->message.order.ord_type == ME_ORDER_MARKET)
 			swipe_market_buy(context, ctx, msg);
 		else
 			swipe_limit_buy(context, ctx, msg);
 	} else {
-		if (msg->message.order.ord_type == B3_ORD_MARKET)
+		if (msg->message.order.ord_type == ME_ORDER_MARKET)
 			swipe_market_sell(context, ctx, msg);
 		else
 			swipe_limit_sell(context, ctx, msg);
@@ -481,12 +488,16 @@ void *me_run(MeContext *context, void *paralell_job(void*), void *job_arg)
 				case ME_MESSAGE_SET_MARKET_PRICE:
 					set_market_price(context, ctx, &msg);
 					break;
-				case B3_MESSAGE_TYPE_SIMPLE_NEW_ORDER:
-				case B3_MESSAGE_TYPE_NEW_ORDER_SINGLE:
+				case ME_MESSAGE_NEW_ORDER:
 					new_order(context, ctx, &msg);
 					break;
-				}
-			}
+                                case ME_MESSAGE_CANCEL_ORDER:
+                                case ME_MESSAGE_TRADE:
+                                case ME_MESSAGE_ORDER_EXECUTED:
+                                case ME_MESSAGE_PANIC:
+                                	break;
+                                }
+                        }
 		} while (msg.msg_type != ME_MESSAGE_PANIC);
 
 		/* Send a panic to the next thread. */
@@ -517,7 +528,7 @@ void me_client_close_context(MeClientContext *context)
 
 int me_client_send_message(MeClientContext *context, MeMessage *message)
 {
-	sendmsg(context, message);
+	mq_send(context->incoming, (char *) message, sizeof(MeMessage), 1);
 	return errno;
 }
 

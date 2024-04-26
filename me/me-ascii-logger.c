@@ -4,19 +4,19 @@
 #include <omp.h>
 #include "me.h"
 
-void print_market_order(MeOrder *o, B3SecurityID id)
+void print_market_order(MeOrder *o, size_t id)
 {
 	printf("%8u: NEW ORDER (MARKET): SIDE=%s QUANTITY=%lu",
 		(unsigned int) id,
-		o->side == B3_BUY ? "BUY" : "SELL",
+		o->side == ME_SIDE_BUY ? "BUY" : "SELL",
 		o->quantity);
 }
 
-void print_limit_order(MeOrder *o, B3SecurityID id)
+void print_limit_order(MeOrder *o, size_t id)
 {
 	printf("%8u: NEW ORDER (LIMIT): SIDE=%s QUANTITY=%lu PRICE=%lu",
 		(unsigned int) id,
-		o->side == B3_BUY ? "BUY" : "SELL",
+		o->side == ME_SIDE_BUY ? "BUY" : "SELL",
 		o->quantity,
 		o->price);
 }
@@ -32,9 +32,8 @@ void print_message(MeMessage *message)
 			(unsigned int) message->security_id,
 			(unsigned long) message->message.set_market_price);
 		break;
-	case B3_MESSAGE_TYPE_SIMPLE_NEW_ORDER:
-	case B3_MESSAGE_TYPE_NEW_ORDER_SINGLE:
-		if (message->message.order.ord_type == B3_ORD_MARKET) {
+	case ME_MESSAGE_NEW_ORDER:
+		if (message->message.order.ord_type == ME_ORDER_MARKET) {
 			print_market_order(&message->message.order,
 				message->security_id);	
 		} else {
@@ -43,7 +42,11 @@ void print_message(MeMessage *message)
 		}
 		break;
 	/* TODO */
-	}
+        case ME_MESSAGE_CANCEL_ORDER:
+        case ME_MESSAGE_TRADE:
+        case ME_MESSAGE_ORDER_EXECUTED:
+        	break;
+        }
 }
 
 int main(void)

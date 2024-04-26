@@ -33,10 +33,10 @@ static const char *help =
 	"$ %s 3 buy quantity=30 # buy 30 from security 3, market order\n"
 	"$ %s 5 sell quantity=20 price=10 # sell 20 of security 5, limit of 10\n";
 
-void build_order(MeMessage *message, char *argv[], int argc, B3Side side)
+void build_order(MeMessage *message, char *argv[], int argc, MeSide side)
 {
 	struct timespec time;
-	message->msg_type = B3_MESSAGE_TYPE_SIMPLE_NEW_ORDER;
+	message->msg_type = ME_MESSAGE_NEW_ORDER;
 	message->message.order.side = side;
 	message->message.order.quantity = 0;
 	message->message.order.price = 0;
@@ -44,7 +44,7 @@ void build_order(MeMessage *message, char *argv[], int argc, B3Side side)
 		perror("Order build failed due to failure in retrieving timestamp");
 		exit(1);
 	}
-	message->message.order.timestamp = (B3UTCTimestampNanos) time.tv_nsec;
+	message->message.order.timestamp = (MeTimestamp) time.tv_nsec;
 
 	for (int i = 3; i < argc; i++) {
 		if (sscanf(argv[i], "quantity=%lu", (unsigned long*) &message->message.order.quantity))
@@ -54,9 +54,9 @@ void build_order(MeMessage *message, char *argv[], int argc, B3Side side)
 	}
 
 	if (message->message.order.price == 0)
-		message->message.order.ord_type = B3_ORD_MARKET;
+		message->message.order.ord_type = ME_ORDER_MARKET;
 	else
-		message->message.order.ord_type = B3_ORD_LIMIT;
+		message->message.order.ord_type = ME_ORDER_LIMIT;
 }
 
 void build_set_price(MeMessage *message, char *argv[], int argc)
@@ -72,7 +72,7 @@ void build_set_price(MeMessage *message, char *argv[], int argc)
 
 void build_cancel(MeMessage *message, char *argv[], int argc)
 {
-	message->msg_type = B3_MESSAGE_TYPE_ORDER_CANCEL_REQUEST;
+	message->msg_type = ME_MESSAGE_CANCEL_ORDER;
 	message->message.to_cancel = 0;
 
 	for (int i = 3; i < argc; i++) {
@@ -104,9 +104,9 @@ int main(int argc, char *argv[])
 	sscanf(argv[1], "%zu", &message.security_id);
 
 	if (!strcmp(argv[2], "buy")) {
-		build_order(&message, argv, argc, B3_BUY);
+		build_order(&message, argv, argc, ME_SIDE_BUY);
 	} else if (!strcmp(argv[2], "sell")) {
-		build_order(&message, argv, argc, B3_SELL);
+		build_order(&message, argv, argc, ME_SIDE_SELL);
 	} else if (!strcmp(argv[2], "set")) {
 		build_set_price(&message, argv, argc);
 	} else if (!strcmp(argv[2], "cancel")) {

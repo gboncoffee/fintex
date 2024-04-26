@@ -12,16 +12,16 @@ CC_D = $(CC) $(CFLAGS) $(DFLAGS) $(CLIBS)
 all: programs
 programs: me/me me/me-debug me/me-cli me/me-ascii-logger
 
-me/me: me/me.c me/me.h b3.h
+me/me: me/me.c me/me.h
 	$(CC_R) -DME_BINARY me/me.c -o me/me
 
-me/me-debug: me/me.c me/me.h b3.h
+me/me-debug: me/me.c me/me.h
 	$(CC_D) -DME_BINARY me/me.c -o me/me-debug
 
-me/me-cli: me/me.c me/me.h b3.h me/me-cli.c
+me/me-cli: me/me.c me/me.h me/me-cli.c
 	$(CC_R) me/me.c me/me-cli.c -o me/me-cli
 
-me/me-ascii-logger: me/me.c me/me.h me/me-ascii-logger.c b3.h
+me/me-ascii-logger: me/me.c me/me.h me/me-ascii-logger.c
 	$(CC_R) me/me.c me/me-ascii-logger.c -o me/me-ascii-logger
 
 clean:
