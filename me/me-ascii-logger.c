@@ -6,7 +6,7 @@
 
 void print_market_order(MeOrder *o, size_t id)
 {
-	printf("%8u: NEW ORDER (MARKET): SIDE=%s QUANTITY=%lu",
+	printf("%8u: NEW ORDER (MARKET): SIDE=%s QUANTITY=%lu\n",
 		(unsigned int) id,
 		o->side == ME_SIDE_BUY ? "BUY" : "SELL",
 		o->quantity);
@@ -14,7 +14,7 @@ void print_market_order(MeOrder *o, size_t id)
 
 void print_limit_order(MeOrder *o, size_t id)
 {
-	printf("%8u: NEW ORDER (LIMIT): SIDE=%s QUANTITY=%lu PRICE=%lu",
+	printf("%8u: NEW ORDER (LIMIT): SIDE=%s QUANTITY=%lu PRICE=%lu\n",
 		(unsigned int) id,
 		o->side == ME_SIDE_BUY ? "BUY" : "SELL",
 		o->quantity,
