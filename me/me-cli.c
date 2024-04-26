@@ -127,8 +127,10 @@ int main(int argc, char *argv[])
 	}
 
 	me_client_send_message(&context, &message);
-	if (errno)
-		printf("shit\n");
+	if (errno) {
+		perror("shit: ");
+		printf("\n");
+	}
 
 	me_client_close_context(&context);
 
