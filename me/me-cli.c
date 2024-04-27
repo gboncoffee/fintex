@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	sscanf(argv[1], "%zu", &message.security_id);
+	sscanf(argv[1], "%zd", &message.security_id);
 
 	if (!strcmp(argv[2], "buy")) {
 		build_order(&message, argv, argc, ME_SIDE_BUY);

@@ -27,7 +27,9 @@ typedef enum {
 	ME_MESSAGE_PANIC,
 } MeMessageType;
 
-/* Nanossecond precision. */
+/* We would usually say it has nanossecond precision but the client may actually
+ * just make something up. We only care with comparing this value, and not it's
+ * precision. */
 typedef uint64_t MeTimestamp;
 
 /* The engine itself does not use it except for cancelling orders. The clients
@@ -66,7 +68,7 @@ typedef struct {
  * (300 - 200). */
 typedef struct {
 	MeMessageType msg_type;
-	size_t security_id;
+	int64_t security_id;
 	union {
 		MeOrder order;
 		int64_t set_market_price;
@@ -97,8 +99,8 @@ typedef struct {
 } MeSecurityContext;
 
 typedef struct {
-	size_t n_securities;
-	size_t buf_size;
+	int64_t n_securities;
+	int64_t buf_size;
 	MeSecurityContext *contexts;
 	mqd_t incoming;
 	mqd_t outcoming;
@@ -128,7 +130,8 @@ typedef struct {
  *         exit(1);
  *     }
  */
-MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t));
+MeContext *me_alloc_context(size_t l2_s, int64_t n_secs,
+			    void *allocate(size_t));
 void me_dealloc_context(MeContext *context, void deallocate(void *));
 void *me_run(MeContext *context, void *paralell_job(void *), void *job_arg);
 

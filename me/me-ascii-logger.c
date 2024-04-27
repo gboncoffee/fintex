@@ -1,33 +1,41 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <omp.h>
 #include "me.h"
 
-void print_market_order(MeOrder *o, size_t id)
+static inline void print_market_order(MeOrder *o, int64_t id)
 {
-	printf("%8u: NEW ORDER (MARKET): SIDE=%s QUANTITY=%lu\n",
-	       (unsigned int)id, o->side == ME_SIDE_BUY ? "BUY" : "SELL",
-	       o->quantity);
+	printf("%8ld: NEW ORDER (MARKET): SIDE=%s QUANTITY=%ld ID=%ld\n", id,
+	       o->side == ME_SIDE_BUY ? "BUY" : "SELL", o->quantity,
+	       o->order_id);
 }
 
-void print_limit_order(MeOrder *o, size_t id)
+static inline void print_limit_order(MeOrder *o, int64_t id)
 {
-	printf("%8u: NEW ORDER (LIMIT): SIDE=%s QUANTITY=%lu PRICE=%lu\n",
-	       (unsigned int)id, o->side == ME_SIDE_BUY ? "BUY" : "SELL",
-	       o->quantity, o->price);
+	printf("%8ld: NEW ORDER (LIMIT): SIDE=%s QUANTITY=%ld PRICE=%ld ID=%ld\n",
+	       id, o->side == ME_SIDE_BUY ? "BUY" : "SELL", o->quantity,
+	       o->price, o->order_id);
 }
 
-void print_message(MeMessage *message)
+static inline void print_trade(MeTrade *t, int64_t id)
+{
+	MeOrder *ag = &t->aggressor;
+	printf("%8ld: TRADE: AGGRESSOR_SIDE=%s QUANTITY=%ld PRICE=%ld MATCHED_ID=%lu",
+	       id, ag->side == ME_SIDE_BUY ? "BUY" : "SELL", ag->quantity,
+	       ag->price, t->matched_id);
+}
+
+static inline void print_message(MeMessage *message)
 {
 	switch (message->msg_type) {
 	case ME_MESSAGE_PANIC:
 		fprintf(stderr, "Engine shutdown via panic. Bailing out.\n");
 		exit(0);
 	case ME_MESSAGE_SET_MARKET_PRICE:
-		printf("%8u: SET MARKET PRICE: PRICE=%lu\n",
-		       (unsigned int)message->security_id,
-		       (unsigned long)message->message.set_market_price);
+		printf("%8ld: SET MARKET PRICE: PRICE=%ld\n",
+		       message->security_id, message->message.set_market_price);
 		break;
 	case ME_MESSAGE_NEW_ORDER:
 		if (message->message.order.ord_type == ME_ORDER_MARKET) {
@@ -38,9 +46,11 @@ void print_message(MeMessage *message)
 					  message->security_id);
 		}
 		break;
+	case ME_MESSAGE_TRADE:
+		print_trade(&message->message.trade, message->security_id);
+		break;
 	/* TODO */
 	case ME_MESSAGE_CANCEL_ORDER:
-	case ME_MESSAGE_TRADE:
 	case ME_MESSAGE_ORDER_EXECUTED:
 		break;
 	}

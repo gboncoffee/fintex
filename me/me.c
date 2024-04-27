@@ -10,7 +10,7 @@
  * copy-pasted to sell ones, which is not exactly a good pratice but does the
  * job. */
 
-MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t))
+MeContext *me_alloc_context(size_t l2_s, int64_t n_secs, void *allocate(size_t))
 {
 	MeContext *context;
 	struct mq_attr qattr;
@@ -72,7 +72,7 @@ MeContext *me_alloc_context(size_t l2_s, size_t n_secs, void *allocate(size_t))
 	context->contexts[0].sell->next = NULL;
 
 	/* Init the rest. */
-	for (size_t i = 1; i < n_secs; i++) {
+	for (int64_t i = 1; i < n_secs; i++) {
 		context->contexts[i].market_price = i;
 		omp_init_lock(&context->contexts[i].lock);
 
@@ -99,7 +99,7 @@ void me_dealloc_context(MeContext *context, void deallocate(void *))
 	mq_unlink(me_in_queue_name);
 	mq_unlink(me_out_queue_name);
 
-	for (size_t i = 0; i < context->n_securities; i++)
+	for (int64_t i = 0; i < context->n_securities; i++)
 		omp_destroy_lock(&context->contexts[i].lock);
 
 	deallocate(context);
@@ -130,7 +130,7 @@ static inline void set_market_price(MeContext *context, MeSecurityContext *ctx,
 	 ((a).price == (b).price && (a).timestamp < (b).timestamp))
 
 static inline void trade(MeContext *context, MeSecurityContext *ctx,
-			 MeOrder *aggressor, MeOrder *other, size_t id,
+			 MeOrder *aggressor, MeOrder *other, int64_t id,
 			 int64_t price)
 {
 	MeMessage send;
@@ -150,7 +150,8 @@ static inline void trade(MeContext *context, MeSecurityContext *ctx,
 	}
 }
 
-static inline void order_executed(MeContext *context, MeOrder *order, size_t id)
+static inline void order_executed(MeContext *context, MeOrder *order,
+				  int64_t id)
 {
 	MeMessage to_send;
 	to_send.msg_type = ME_MESSAGE_ORDER_EXECUTED;
@@ -225,11 +226,11 @@ static inline void remove_first_buy(MeContext *context, MeSecurityContext *ctx)
 	} while (!swapped);
 }
 
-static inline void new_limit_buy(MeBook *book, MeOrder *order, size_t buf_size)
+static inline void new_limit_buy(MeBook *book, MeOrder *order, int64_t buf_size)
 {
 	int64_t new_pos = book->used;
 	/* TODO: handle this. */
-	if (((size_t)new_pos) > buf_size)
+	if (new_pos > buf_size)
 		return;
 
 	int64_t parent = PARENT(new_pos);
@@ -245,11 +246,12 @@ static inline void new_limit_buy(MeBook *book, MeOrder *order, size_t buf_size)
 	book->used++;
 }
 
-static inline void new_limit_sell(MeBook *book, MeOrder *order, size_t buf_size)
+static inline void new_limit_sell(MeBook *book, MeOrder *order,
+				  int64_t buf_size)
 {
 	int64_t new_pos = book->used;
 	/* TODO: handle this. */
-	if (((size_t)new_pos) > buf_size)
+	if (new_pos > buf_size)
 		return;
 
 	int64_t parent = PARENT(new_pos);
@@ -531,13 +533,13 @@ static const char *help =
 int main(int argc, char *argv[])
 {
 	size_t l2_s = 1024 * 1024 * 1024 + 512 * 1024 * 1024;
-	size_t n_securities = 400;
+	int64_t n_securities = 400;
 
 	for (int i = 1; i < argc; i++) {
 		if (sscanf(argv[i], "-c=%zu", &l2_s) == 1 ||
 		    sscanf(argv[i], "--cache-size=%zu", &l2_s) == 1 ||
-		    sscanf(argv[i], "-s=%zu", &n_securities) == 1 ||
-		    sscanf(argv[i], "--securities=%zu", &n_securities) == 1) {
+		    sscanf(argv[i], "-s=%zd", &n_securities) == 1 ||
+		    sscanf(argv[i], "--securities=%zd", &n_securities) == 1) {
 			continue;
 		} else if (strcmp(argv[i], "-h") == 0 ||
 			   strcmp(argv[i], "--help") == 0) {
