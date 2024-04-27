@@ -7,10 +7,11 @@ CLIBS = -fopenmp
 CC_R = $(CC) $(CFLAGS) $(RFLAGS) $(CLIBS)
 CC_D = $(CC) $(CFLAGS) $(DFLAGS) $(CLIBS)
 
-.PHONY: all programs clean format-workspace
+.PHONY: all programs programs-debug clean format-workspace
 
-all: programs
-programs: me/me me/me-debug me/me-cli me/me-ascii-logger
+all: programs programs-debug
+programs: me/me me/me-cli me/me-ascii-logger
+programs-debug: me/me-debug me/me-cli me/me-ascii-logger
 
 me/me: me/me.c me/me.h
 	$(CC_R) -DME_BINARY me/me.c -o me/me
