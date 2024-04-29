@@ -1,30 +1,30 @@
 #ifndef __ME_HEADER
 #define __ME_HEADER
 
+#include <mqueue.h>
 #include <omp.h>
 #include <stdint.h>
-#include <mqueue.h>
 
 static const char *me_in_queue_name = "/fintexmeincoming";
 static const char *me_out_queue_name = "/fintexmeoutcoming";
 
 typedef enum {
-	ME_SIDE_BUY,
-	ME_SIDE_SELL,
+  ME_SIDE_BUY,
+  ME_SIDE_SELL,
 } MeSide;
 
 typedef enum {
-	ME_ORDER_MARKET,
-	ME_ORDER_LIMIT,
+  ME_ORDER_MARKET,
+  ME_ORDER_LIMIT,
 } MeOrderType;
 
 typedef enum {
-	ME_MESSAGE_NEW_ORDER,
-	ME_MESSAGE_CANCEL_ORDER,
-	ME_MESSAGE_SET_MARKET_PRICE,
-	ME_MESSAGE_TRADE,
-	ME_MESSAGE_ORDER_EXECUTED,
-	ME_MESSAGE_PANIC,
+  ME_MESSAGE_NEW_ORDER,
+  ME_MESSAGE_CANCEL_ORDER,
+  ME_MESSAGE_SET_MARKET_PRICE,
+  ME_MESSAGE_TRADE,
+  ME_MESSAGE_ORDER_EXECUTED,
+  ME_MESSAGE_PANIC,
 } MeMessageType;
 
 /* We would usually say it has nanossecond precision but the client may actually
@@ -37,17 +37,17 @@ typedef uint64_t MeTimestamp;
 typedef uint64_t MeOrderID;
 
 typedef struct {
-	MeSide side;
-	int64_t quantity;
-	MeOrderType ord_type;
-	int64_t price;
-	MeOrderID order_id;
-	MeTimestamp timestamp;
+  MeSide side;
+  int64_t quantity;
+  MeOrderType ord_type;
+  int64_t price;
+  MeOrderID order_id;
+  MeTimestamp timestamp;
 } MeOrder;
 
 typedef struct {
-	MeOrder aggressor;
-	MeOrderID matched_id;
+  MeOrder aggressor;
+  MeOrderID matched_id;
 } MeTrade;
 
 /* NEW, CANCEL and SET_MARKET_PRICE are received by the matching engine and
@@ -67,45 +67,45 @@ typedef struct {
  * identified by the matched_id should have it's own quantity updated to 100
  * (300 - 200). */
 typedef struct {
-	MeMessageType msg_type;
-	int64_t security_id;
-	union {
-		MeOrder order;
-		int64_t set_market_price;
-		MeTrade trade;
-		MeOrderID to_cancel;
-	} message;
+  MeMessageType msg_type;
+  int64_t security_id;
+  union {
+    MeOrder order;
+    int64_t set_market_price;
+    MeTrade trade;
+    MeOrderID to_cancel;
+  } message;
 } MeMessage;
 
 #define ME_MINIMUM_MEMORY(n_secs) \
-	(sizeof(MeContext) +      \
-	 n_secs * (sizeof(MeSecurityContext) + sizeof(MeOrder)))
+  (sizeof(MeContext) + n_secs * (sizeof(MeSecurityContext) + sizeof(MeOrder)))
 
 /* "Server" (engine) side. */
 
 typedef struct MeBook {
-	/* An int64_t for convenience. Signed indexes are such a great idea. */
-	int64_t used;
-	struct MeBook *next;
-	/* Size is MeContext.buf_size. In indexes, not bytes. */
-	MeOrder orders[];
+  /* An int64_t for convenience. Signed indexes are such a great idea. */
+  int64_t used;
+  struct MeBook *next;
+  /* Size is MeContext.buf_size. In indexes, not bytes. */
+  MeOrder orders[];
 } MeBook;
 
 typedef struct {
-	MeBook *buy;
-	MeBook *sell;
-	int64_t market_price;
-	omp_lock_t lock;
+  MeBook *buy;
+  MeBook *sell;
+  int64_t market_price;
+  omp_lock_t lock;
 } MeSecurityContext;
 
 typedef struct {
-	int64_t n_securities;
-	int64_t buf_size;
-	MeSecurityContext *contexts;
-	mqd_t incoming;
-	mqd_t outcoming;
+  int64_t n_securities;
+  int64_t buf_size;
+  MeSecurityContext *contexts;
+  mqd_t incoming;
+  mqd_t outcoming;
 } MeContext;
 
+/* clang-format off */
 /* Propagates the allocator errno if it returns NULL. If l2_s is less than the
  * minimum amount needed by the engine, returns NULL and sets errno to EDOM.
  * Also sets EDOM if n_securities == 0. Other errors may be propagated (mq_open,
@@ -118,28 +118,29 @@ typedef struct {
  * required to operate the engine properly, the caller should make something up.
  *
  * Example:
- *
- *     MeContext *context = me_alloc_context(1024*1024*1024 + 512*1024*1024, 400, malloc);
- *     if (context == NULL) {
- *         printf("buy more ram\n");
- *         exit(1);
- *     }
- *     if (errno != 0) {
- *         printf("something went wrong\n");
- *         free(context);
- *         exit(1);
- *     }
+ * 
+ * MeContext *context = me_alloc_context(1024*1024*1024 + 512*1024*1024, 400, malloc);
+ * if (context == NULL) {
+ *   printf("buy more ram\n");
+ *   exit(1);
+ * }
+ * if (errno != 0) {
+ *   printf("something went wrong\n");
+ *   free(context);
+ *   exit(1);
+ * }
  */
+/* clang-format on */
 MeContext *me_alloc_context(size_t l2_s, int64_t n_secs,
-			    void *allocate(size_t));
+                            void *allocate(size_t));
 void me_dealloc_context(MeContext *context, void deallocate(void *));
 void *me_run(MeContext *context, void *paralell_job(void *), void *job_arg);
 
 /* "Client" side. */
 
 typedef struct {
-	mqd_t incoming;
-	mqd_t outcoming;
+  mqd_t incoming;
+  mqd_t outcoming;
 } MeClientContext;
 
 int me_client_init_context(MeClientContext *context);
