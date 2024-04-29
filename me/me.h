@@ -103,6 +103,7 @@ typedef struct {
   MeSecurityContext *contexts;
   mqd_t incoming;
   mqd_t outcoming;
+  void *(*allocate)(size_t);
 } MeContext;
 
 /* clang-format off */

@@ -12,7 +12,7 @@
  * job. */
 
 MeContext *me_alloc_context(size_t l2_s, int64_t n_secs,
-                            void *allocate(size_t)) {
+                            void *(*allocate)(size_t)) {
   MeContext *context;
   struct mq_attr qattr;
   mqd_t dumb_q;
@@ -27,6 +27,7 @@ MeContext *me_alloc_context(size_t l2_s, int64_t n_secs,
   if (!(context = allocate(l2_s))) return NULL;
 
   context->n_securities = n_secs;
+  context->allocate = allocate;
 
   /* Create a dumb queue to get the attributes. */
   if ((dumb_q = mq_open("/fintexmedumb", O_CREAT | O_RDWR | O_NONBLOCK, 0777,
@@ -153,12 +154,69 @@ static inline void order_executed(MeContext *context, MeOrder *order,
   sendmsg(context, &to_send);
 }
 
-static inline void remove_first_sell(MeContext *context,
-                                     MeSecurityContext *ctx) {
-  /* TODO: next books. */
-  (void)context;
+static inline void new_limit_buy(MeBook *book, MeOrder *order, int64_t buf_size,
+                                 void *(*allocate)(size_t)) {
+  int64_t new_pos = book->used;
+  int64_t parent = PARENT(new_pos);
 
-  MeBook *book = ctx->sell;
+  if (new_pos > buf_size) {
+    if (book->next == NULL) {
+      book->next = allocate(sizeof(MeBook) + buf_size * sizeof(MeOrder));
+      book->next->next = NULL;
+      book->next->used = 0;
+    }
+    if (BUY_GREATER_THAN(book->orders[book->used], *order)) {
+      new_limit_buy(book->next, order, buf_size, allocate);
+      return;
+    }
+    new_limit_buy(book->next, &book->orders[parent], buf_size, allocate);
+    new_pos = parent;
+    parent = PARENT(new_pos);
+  }
+
+  /* PARENT(0) = 0. */
+  while (parent != new_pos && BUY_GREATER_THAN(*order, book->orders[parent])) {
+    book->orders[new_pos] = book->orders[parent];
+    new_pos = parent;
+    parent = PARENT(new_pos);
+  }
+  book->orders[new_pos] = *order;
+
+  book->used++;
+}
+
+static inline void new_limit_sell(MeBook *book, MeOrder *order,
+                                  int64_t buf_size, void *(*allocate)(size_t)) {
+  int64_t new_pos = book->used;
+  int64_t parent = PARENT(new_pos);
+
+  if (new_pos > buf_size) {
+    if (book->next == NULL) {
+      book->next = allocate(sizeof(MeBook) + buf_size * sizeof(MeOrder));
+      book->next->next = NULL;
+      book->next->used = 0;
+    }
+    if (SELL_GREATER_THAN(book->orders[book->used], *order)) {
+      new_limit_sell(book->next, order, buf_size, allocate);
+      return;
+    }
+    new_limit_sell(book->next, &book->orders[parent], buf_size, allocate);
+    new_pos = parent;
+    parent = PARENT(new_pos);
+  }
+
+  /* PARENT(0) = 0. */
+  while (parent != new_pos && SELL_GREATER_THAN(*order, book->orders[parent])) {
+    book->orders[new_pos] = book->orders[parent];
+    new_pos = parent;
+    parent = PARENT(new_pos);
+  }
+  book->orders[new_pos] = *order;
+
+  book->used++;
+}
+
+static inline void remove_first_sell(MeBook *book, int64_t buf_size) {
   book->orders[0] = book->orders[book->used - 1];
   book->used--;
   MeOrder tmp;
@@ -183,15 +241,15 @@ static inline void remove_first_sell(MeContext *context,
       swapped = !swapped;
     }
   } while (!swapped);
+
+  /* Tail recursive. Good. The insertion is guarantee to not recurse, of course.
+   * So it won't allocate too. */
+  if (book->next == NULL || book->next->used > 0) return;
+  new_limit_sell(book, &book->next->orders[0], buf_size, NULL);
+  remove_first_sell(book->next, buf_size);
 }
 
-static inline void remove_first_buy(MeContext *context,
-                                    MeSecurityContext *ctx) {
-  /* TODO: next books. */
-  (void)context;
-
-  MeBook *book = ctx->buy;
-
+static inline void remove_first_buy(MeBook *book, int64_t buf_size) {
   book->orders[0] = book->orders[book->used - 1];
   book->used--;
   MeOrder tmp;
@@ -215,46 +273,13 @@ static inline void remove_first_buy(MeContext *context,
       swapped = !swapped;
     }
   } while (!swapped);
-}
-
-static inline void new_limit_buy(MeBook *book, MeOrder *order,
-                                 int64_t buf_size) {
-  int64_t new_pos = book->used;
-  /* TODO: handle this. */
-  if (new_pos > buf_size) return;
-
-  int64_t parent = PARENT(new_pos);
-  /* PARENT(0) = 0. */
-  while (parent != new_pos && BUY_GREATER_THAN(*order, book->orders[parent])) {
-    book->orders[new_pos] = book->orders[parent];
-    new_pos = parent;
-    parent = PARENT(new_pos);
-  }
-  book->orders[new_pos] = *order;
-
-  book->used++;
-}
-
-static inline void new_limit_sell(MeBook *book, MeOrder *order,
-                                  int64_t buf_size) {
-  int64_t new_pos = book->used;
-  /* TODO: handle this. */
-  if (new_pos > buf_size) return;
-
-  int64_t parent = PARENT(new_pos);
-  /* PARENT(0) = 0. */
-  while (parent != new_pos && SELL_GREATER_THAN(*order, book->orders[parent])) {
-    book->orders[new_pos] = book->orders[parent];
-    new_pos = parent;
-    parent = PARENT(new_pos);
-  }
-  book->orders[new_pos] = *order;
-
-  book->used++;
+  if (book->next == NULL || book->next->used > 0) return;
+  new_limit_buy(book, &book->next->orders[0], buf_size, NULL);
+  remove_first_buy(book->next, buf_size);
 }
 
 static inline void swipe_market_buy(MeContext *context, MeSecurityContext *ctx,
-                                    MeMessage *msg) {
+                                    MeMessage *msg, void *(*allocate)(size_t)) {
   int64_t new_aggressor_quantity = msg->message.order.quantity;
   /* Propagate the new order message. */
   sendmsg(context, msg);
@@ -271,7 +296,7 @@ static inline void swipe_market_buy(MeContext *context, MeSecurityContext *ctx,
 
     if (new_matched_quantity <= 0) {
       order_executed(context, &ctx->sell->orders[0], msg->security_id);
-      remove_first_sell(context, ctx);
+      remove_first_sell(ctx->sell, context->buf_size);
       /* new_aggressor_quantity <= 0 */
     } else {
       order_executed(context, &msg->message.order, msg->security_id);
@@ -285,12 +310,13 @@ static inline void swipe_market_buy(MeContext *context, MeSecurityContext *ctx,
     /* Propagate again as limit. */
     sendmsg(context, msg);
 
-    new_limit_buy(ctx->buy, &msg->message.order, context->buf_size);
+    new_limit_buy(ctx->buy, &msg->message.order, context->buf_size, allocate);
   }
 }
 
 static inline void swipe_market_sell(MeContext *context, MeSecurityContext *ctx,
-                                     MeMessage *msg) {
+                                     MeMessage *msg,
+                                     void *(*allocate)(size_t)) {
   int64_t new_aggressor_quantity = msg->message.order.quantity;
   /* Propagate the new order message. */
   sendmsg(context, msg);
@@ -307,7 +333,7 @@ static inline void swipe_market_sell(MeContext *context, MeSecurityContext *ctx,
 
     if (new_matched_quantity <= 0) {
       order_executed(context, &ctx->buy->orders[0], msg->security_id);
-      remove_first_buy(context, ctx);
+      remove_first_buy(ctx->buy, context->buf_size);
       /* new_aggressor_quantity <= 0 */
     } else {
       order_executed(context, &msg->message.order, msg->security_id);
@@ -321,12 +347,12 @@ static inline void swipe_market_sell(MeContext *context, MeSecurityContext *ctx,
     /* Propagate again as limit. */
     sendmsg(context, msg);
 
-    new_limit_sell(ctx->sell, &msg->message.order, context->buf_size);
+    new_limit_sell(ctx->sell, &msg->message.order, context->buf_size, allocate);
   }
 }
 
 static inline void swipe_limit_buy(MeContext *context, MeSecurityContext *ctx,
-                                   MeMessage *msg) {
+                                   MeMessage *msg, void *(*allocate)(size_t)) {
   int64_t new_aggressor_quantity = msg->message.order.quantity;
   /* Propagate the new order message. */
   sendmsg(context, msg);
@@ -343,7 +369,7 @@ static inline void swipe_limit_buy(MeContext *context, MeSecurityContext *ctx,
 
     if (new_matched_quantity <= 0) {
       order_executed(context, &ctx->sell->orders[0], msg->security_id);
-      remove_first_sell(context, ctx);
+      remove_first_sell(ctx->sell, context->buf_size);
       /* new_aggressor_quantity <= 0 */
     } else {
       order_executed(context, &msg->message.order, msg->security_id);
@@ -352,11 +378,11 @@ static inline void swipe_limit_buy(MeContext *context, MeSecurityContext *ctx,
   }
 
   /* Don't need to propagate again. */
-  new_limit_buy(ctx->buy, &msg->message.order, context->buf_size);
+  new_limit_buy(ctx->buy, &msg->message.order, context->buf_size, allocate);
 }
 
 static inline void swipe_limit_sell(MeContext *context, MeSecurityContext *ctx,
-                                    MeMessage *msg) {
+                                    MeMessage *msg, void *(*allocate)(size_t)) {
   int64_t new_aggressor_quantity = msg->message.order.quantity;
   /* Propagate the new order message. */
   sendmsg(context, msg);
@@ -373,7 +399,7 @@ static inline void swipe_limit_sell(MeContext *context, MeSecurityContext *ctx,
 
     if (new_matched_quantity <= 0) {
       order_executed(context, &ctx->buy->orders[0], msg->security_id);
-      remove_first_buy(context, ctx);
+      remove_first_buy(ctx->buy, context->buf_size);
       /* new_aggressor_quantity <= 0 */
     } else {
       order_executed(context, &msg->message.order, msg->security_id);
@@ -382,7 +408,7 @@ static inline void swipe_limit_sell(MeContext *context, MeSecurityContext *ctx,
   }
 
   /* Don't need to propagate again. */
-  new_limit_sell(ctx->sell, &msg->message.order, context->buf_size);
+  new_limit_sell(ctx->sell, &msg->message.order, context->buf_size, allocate);
 }
 
 static inline void new_order(MeContext *context, MeSecurityContext *ctx,
@@ -390,14 +416,14 @@ static inline void new_order(MeContext *context, MeSecurityContext *ctx,
   omp_set_lock(&ctx->lock);
   if (msg->message.order.side == ME_SIDE_BUY) {
     if (msg->message.order.ord_type == ME_ORDER_MARKET)
-      swipe_market_buy(context, ctx, msg);
+      swipe_market_buy(context, ctx, msg, context->allocate);
     else
-      swipe_limit_buy(context, ctx, msg);
+      swipe_limit_buy(context, ctx, msg, context->allocate);
   } else {
     if (msg->message.order.ord_type == ME_ORDER_MARKET)
-      swipe_market_sell(context, ctx, msg);
+      swipe_market_sell(context, ctx, msg, context->allocate);
     else
-      swipe_limit_sell(context, ctx, msg);
+      swipe_limit_sell(context, ctx, msg, context->allocate);
   }
   omp_unset_lock(&ctx->lock);
 }
