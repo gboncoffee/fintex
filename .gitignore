@@ -2,3 +2,5 @@ me/me
 me/me-ascii-logger
 me/me-cli
 me/me-debug
+me/me.o
+me/python/me.so
