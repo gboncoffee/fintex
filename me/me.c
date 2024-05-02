@@ -528,7 +528,7 @@ void *me_run(MeContext *context, void *paralell_job(void *), void *job_arg) {
     } while (msg.msg_type != ME_MESSAGE_PANIC);
 
     /* Send a panic to the next thread. */
-    sendmsg(context, &msg);
+    mq_send(context->incoming, (char *)(&msg), sizeof(MeMessage), 1);
   }
 
   /* Inform those listening on outcoming that we're bailing out. */
