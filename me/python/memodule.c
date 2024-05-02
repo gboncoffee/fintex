@@ -1,5 +1,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <python3.12/Python.h>
+#include <stdlib.h>
 
 #include "../me.h"
 
@@ -290,6 +291,11 @@ static PyObject *mePyClientContext_sendmsg(MePyClientContext *self,
   } else if (type == &mePyCancelOrderMessageType) {
     to_send.message.to_cancel = ((MePyCancelOrderMessage *)message)->id;
     to_send.msg_type = ME_MESSAGE_CANCEL_ORDER;
+  } else if (type == &mePyOrderExecutedMessageType) {
+    to_send.message.order = ((MePyOrderExecutedMessage *)message)->order;
+    to_send.msg_type = ME_MESSAGE_ORDER_EXECUTED;
+  } else if (type == &mePyPanicMessageType) {
+    to_send.msg_type = ME_MESSAGE_PANIC;
   }
 
   if (me_client_send_message(&self->context, &to_send)) {
@@ -376,6 +382,62 @@ static PyTypeObject mePyClientContextType = {
 };
 
 /*
+ * Engine context type.
+ */
+
+typedef struct {
+  PyObject_HEAD MeContext *context;
+} MePyContext;
+
+static void mePyContext_dealloc(MePyContext *self) {
+  me_dealloc_context(self->context, free);
+  Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *mePyContext_new(PyTypeObject *type, PyObject *args,
+                                 PyObject *kwds) {
+  MePyContext *self;
+  self = (MePyContext *)type->tp_alloc(type, 0);
+  if (self == NULL) return NULL;
+
+  size_t l2size;
+  size_t securities;
+
+  static char *kwlist[] = {"l2size", "securities", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "ll", kwlist, &l2size,
+                                   &securities))
+    return NULL;
+
+  self->context = me_alloc_context(l2size, securities, malloc);
+
+  return (PyObject *)self;
+}
+
+static PyObject *mePyContext_run(MePyContext *self, PyObject *args) {
+  (void)args;
+
+  me_run(self->context, NULL, NULL);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyMethodDef mePyContextMethods[] = {
+    {"run", (PyCFunction)mePyContext_run, METH_NOARGS, "Runs the engine."},
+    {NULL}};
+
+static PyTypeObject mePyContextType = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "me.Context",
+    .tp_doc = PyDoc_STR("Engine context."),
+    .tp_basicsize = sizeof(MePyContext),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new = mePyContext_new,
+    .tp_dealloc = (destructor)mePyContext_dealloc,
+    .tp_methods = mePyContextMethods,
+};
+
+/*
  * Module.
  */
 
@@ -397,6 +459,7 @@ PyMODINIT_FUNC PyInit_me(void) {
   if (PyType_Ready(&mePyTradeMessageType) < 0) return NULL;
   if (PyType_Ready(&mePyCancelOrderMessageType) < 0) return NULL;
   if (PyType_Ready(&mePyPanicMessageType) < 0) return NULL;
+  if (PyType_Ready(&mePyContextType) < 0) return NULL;
 
   /* Module creation. */
   m = PyModule_Create(&memodule);
@@ -458,6 +521,12 @@ PyMODINIT_FUNC PyInit_me(void) {
     Py_DECREF(m);
     return NULL;
   }
+  Py_INCREF(&mePyContextType);
+  if (PyModule_AddObject(m, "Context", (PyObject *)&mePyContextType) < 0) {
+    Py_DECREF(&mePyContextType);
+    Py_DECREF(m);
+    return NULL;
+  }
 
   /* Add error types. */
   meErrorPosixQueue = PyErr_NewException("me.posix_queue_error", NULL, NULL);
@@ -495,6 +564,10 @@ PyMODINIT_FUNC PyInit_me(void) {
   PyModule_AddIntConstant(m, "ME_MESSAGE_ORDER_EXECUTED",
                           ME_MESSAGE_ORDER_EXECUTED);
   PyModule_AddIntConstant(m, "ME_MESSAGE_PANIC", ME_MESSAGE_PANIC);
+
+  /* Usefull constants. */
+  PyModule_AddIntConstant(m, "ME_DEFAULT_CACHE_SIZE", 1610612736);
+  PyModule_AddIntConstant(m, "ME_DEFAULT_SECURITIES_NUMBER", 400);
 
   return m;
 }

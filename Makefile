@@ -31,7 +31,7 @@ me/me.o: me/me.c me/me.h
 # We don't use the flags in the Python binding as the headers will pollute our
 # compilation warnings.
 me/python/me.so: me/me.o me/python/memodule.c
-	$(CC) -pedantic -std=c99 $(RFLAGS) -shared -fpic $^ -o $@
+	$(CC) -pedantic -std=c99 $(RFLAGS) $(CLIBS) -shared -fpic $^ -o $@
 
 clean:
 	-rm me/me
