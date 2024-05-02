@@ -28,8 +28,10 @@ me/me-ascii-logger: me/me.o me/me.h me/me-ascii-logger.c
 me/me.o: me/me.c me/me.h
 	$(CC_R) -fpic -c me/me.c -o $@
 
+# We don't use the flags in the Python binding as the headers will pollute our
+# compilation warnings.
 me/python/me.so: me/me.o me/python/memodule.c
-	$(CC_R) -shared -fpic $^ -o $@
+	$(CC) -pedantic -std=c99 $(RFLAGS) -shared -fpic $^ -o $@
 
 clean:
 	-rm me/me

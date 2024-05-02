@@ -428,6 +428,71 @@ static inline void new_order(MeContext *context, MeSecurityContext *ctx,
   omp_unset_lock(&ctx->lock);
 }
 
+static inline void remove_buy_order(MeBook *book, int64_t idx,
+                                    int64_t buf_size) {
+  while (idx < book->used) {
+    if (BUY_GREATER_THAN(book->orders[LEFT(idx)], book->orders[RIGHT(idx)])) {
+      book->orders[idx] = book->orders[LEFT(idx)];
+      idx = LEFT(idx);
+    } else {
+      book->orders[idx] = book->orders[RIGHT(idx)];
+      idx = RIGHT(idx);
+    }
+  }
+
+  if (book->next != NULL && book->next->used > 0) {
+    // Garanteed to not allocate.
+    new_limit_buy(book, &book->next->orders[0], buf_size, NULL);
+    remove_first_buy(book->next, buf_size);
+  }
+}
+
+static inline void remove_sell_order(MeBook *book, int64_t idx,
+                                     int64_t buf_size) {
+  while (idx < book->used) {
+    if (SELL_GREATER_THAN(book->orders[LEFT(idx)], book->orders[RIGHT(idx)])) {
+      book->orders[idx] = book->orders[LEFT(idx)];
+      idx = LEFT(idx);
+    } else {
+      book->orders[idx] = book->orders[RIGHT(idx)];
+      idx = RIGHT(idx);
+    }
+  }
+
+  if (book->next != NULL && book->next->used > 0) {
+    // Garanteed to not allocate.
+    new_limit_sell(book, &book->next->orders[0], buf_size, NULL);
+    remove_first_sell(book->next, buf_size);
+  }
+}
+
+static inline void cancel_order(MeContext *context, MeSecurityContext *ctx,
+                                MeMessage *msg) {
+  MeOrderID id = msg->message.to_cancel;
+
+  omp_set_lock(&ctx->lock);
+
+  for (MeBook *book = ctx->buy; book != NULL; book = book->next) {
+    for (int64_t i = 0; i < book->used; i++) {
+      if (book->orders[i].order_id == id) {
+        remove_buy_order(book, i, context->buf_size);
+        goto unset;
+      }
+    }
+  }
+  for (MeBook *book = ctx->sell; book != NULL; book = book->next) {
+    for (int64_t i = 0; i < book->used; i++) {
+      if (book->orders[i].order_id == id) {
+        remove_sell_order(book, i, context->buf_size);
+        goto unset;
+      }
+    }
+  }
+
+unset:
+  omp_unset_lock(&ctx->lock);
+}
+
 void *me_run(MeContext *context, void *paralell_job(void *), void *job_arg) {
   void *r = NULL;
   MeMessage msg;
@@ -453,6 +518,7 @@ void *me_run(MeContext *context, void *paralell_job(void *), void *job_arg) {
             new_order(context, ctx, &msg);
             break;
           case ME_MESSAGE_CANCEL_ORDER:
+            cancel_order(context, ctx, &msg);
           case ME_MESSAGE_TRADE:
           case ME_MESSAGE_ORDER_EXECUTED:
           case ME_MESSAGE_PANIC:
