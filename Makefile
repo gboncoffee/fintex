@@ -9,7 +9,7 @@ CC_D = $(CC) $(CFLAGS) $(DFLAGS) $(CLIBS)
 
 .PHONY: all programs programs-debug clean format-workspace
 
-all: programs programs-debug me/python/me.so
+all: programs programs-debug me/python/melow.so
 programs: me/me me/me-cli me/me-ascii-logger
 programs-debug: me/me-debug me/me-cli me/me-ascii-logger
 
@@ -26,11 +26,11 @@ me/me-ascii-logger: me/me.o me/me.h me/me-ascii-logger.c
 	$(CC_R) me/me.c me/me-ascii-logger.c -o $@
 
 me/me.o: me/me.c me/me.h
-	$(CC_R) -fpic -c me/me.c -o $@
+	$(CC_R) -fpic -ggdb -c me/me.c -o $@
 
 # We don't use the flags in the Python binding as the headers will pollute our
 # compilation warnings.
-me/python/me.so: me/me.o me/python/memodule.c
+me/python/melow.so: me/me.o me/python/melowmodule.c
 	$(CC) -pedantic -std=c99 $(RFLAGS) $(CLIBS) -shared -fpic $^ -o $@
 
 clean:
