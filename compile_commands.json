@@ -1,0 +1,152 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-Ofast",
+      "-fopenmp",
+      "-DME_BINARY",
+      "-o",
+      "me/me",
+      "me/me.c"
+    ],
+    "directory": "/home/gabriel/src/fintex",
+    "file": "/home/gabriel/src/fintex/me/me.c",
+    "output": "/home/gabriel/src/fintex/me/me"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-Ofast",
+      "-fopenmp",
+      "-fpic",
+      "-ggdb",
+      "-c",
+      "-o",
+      "me/me.o",
+      "me/me.c"
+    ],
+    "directory": "/home/gabriel/src/fintex",
+    "file": "/home/gabriel/src/fintex/me/me.c",
+    "output": "/home/gabriel/src/fintex/me/me.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-Ofast",
+      "-fopenmp",
+      "-o",
+      "me/me-cli",
+      "me/me.c"
+    ],
+    "directory": "/home/gabriel/src/fintex",
+    "file": "/home/gabriel/src/fintex/me/me.c",
+    "output": "/home/gabriel/src/fintex/me/me-cli"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-Ofast",
+      "-fopenmp",
+      "-o",
+      "me/me-cli",
+      "me/me-cli.c"
+    ],
+    "directory": "/home/gabriel/src/fintex",
+    "file": "/home/gabriel/src/fintex/me/me-cli.c",
+    "output": "/home/gabriel/src/fintex/me/me-cli"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-Ofast",
+      "-fopenmp",
+      "-o",
+      "me/me-ascii-logger",
+      "me/me.c"
+    ],
+    "directory": "/home/gabriel/src/fintex",
+    "file": "/home/gabriel/src/fintex/me/me.c",
+    "output": "/home/gabriel/src/fintex/me/me-ascii-logger"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-Ofast",
+      "-fopenmp",
+      "-o",
+      "me/me-ascii-logger",
+      "me/me-ascii-logger.c"
+    ],
+    "directory": "/home/gabriel/src/fintex",
+    "file": "/home/gabriel/src/fintex/me/me-ascii-logger.c",
+    "output": "/home/gabriel/src/fintex/me/me-ascii-logger"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c99",
+      "-ggdb",
+      "-fopenmp",
+      "-DME_BINARY",
+      "-o",
+      "me/me-debug",
+      "me/me.c"
+    ],
+    "directory": "/home/gabriel/src/fintex",
+    "file": "/home/gabriel/src/fintex/me/me.c",
+    "output": "/home/gabriel/src/fintex/me/me-debug"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-pedantic",
+      "-std=c99",
+      "-Ofast",
+      "-fopenmp",
+      "-I/usr/include/python3.10",
+      "-I/usr/include/x86_64-linux-gnu/python3.10",
+      "-fpic",
+      "me/me.o",
+      "-o",
+      "me/python/melow.so",
+      "me/python/melowmodule.c"
+    ],
+    "directory": "/home/gabriel/src/fintex",
+    "file": "/home/gabriel/src/fintex/me/python/melowmodule.c",
+    "output": "/home/gabriel/src/fintex/me/python/melow.so"
+  }
+]

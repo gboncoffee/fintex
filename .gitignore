@@ -4,3 +4,5 @@ me/me-cli
 me/me-debug
 me/me.o
 me/python/melow.so
+me/python/__pycache__/*
+.cache/*

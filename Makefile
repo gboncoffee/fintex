@@ -31,7 +31,7 @@ me/me.o: me/me.c me/me.h
 # We don't use the flags in the Python binding as the headers will pollute our
 # compilation warnings.
 me/python/melow.so: me/me.o me/python/melowmodule.c
-	$(CC) -pedantic -std=c99 $(RFLAGS) $(CLIBS) -shared -fpic $^ -o $@
+	$(CC) -pedantic -std=c99 $(RFLAGS) $(CLIBS) `pkg-config --cflags --libs python3` -shared -fpic $^ -o $@
 
 clean:
 	-rm me/me
@@ -39,7 +39,7 @@ clean:
 	-rm me/me-cli
 	-rm me/me-ascii-logger
 	-rm me/me.o
-	-rm me/python/me.so
+	-rm me/python/melow.so
 
 format-workspace:
 	./format-workspace.sh
