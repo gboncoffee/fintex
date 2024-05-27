@@ -19,9 +19,17 @@ static inline void print_limit_order(MeOrder *o, int64_t id) {
 
 static inline void print_trade(MeTrade *t, int64_t id) {
   MeOrder *ag = &t->aggressor;
-  printf("%8ld: TRADE: AGGRESSOR_SIDE=%s QUANTITY=%ld PRICE=%ld MATCHED_ID=%lu",
+  printf("%8ld: TRADE: AGGRESSOR_SIDE=%s QUANTITY=%ld PRICE=%ld ID=%lu MATCHED_ID=%lu\n",
          id, ag->side == ME_SIDE_BUY ? "BUY" : "SELL", ag->quantity, ag->price,
-         t->matched_id);
+         ag->order_id, t->matched_id);
+}
+
+static inline void print_cancel(MeOrderID id, int64_t security_id) {
+  printf("%8ld: CANCEL ORDER: ID=%ld\n", security_id, id);
+}
+
+static inline void print_executed(MeOrder *order, int64_t id) {
+  printf("%8ld: ORDER EXECUTED: ID=%ld\n", id, order->order_id);
 }
 
 static inline void print_message(MeMessage *message) {
@@ -43,9 +51,11 @@ static inline void print_message(MeMessage *message) {
     case ME_MESSAGE_TRADE:
       print_trade(&message->message.trade, message->security_id);
       break;
-    /* TODO */
     case ME_MESSAGE_CANCEL_ORDER:
+      print_cancel(message->message.to_cancel, message->security_id);
+      break;
     case ME_MESSAGE_ORDER_EXECUTED:
+      print_executed(&message->message.order, message->security_id);
       break;
   }
 }

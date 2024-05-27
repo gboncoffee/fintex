@@ -222,6 +222,7 @@ static inline void remove_first_sell(MeBook *book, int64_t buf_size) {
   MeOrder tmp;
 
   /* I don't know how to optimize this and keep it readable. */
+  /* TODO: this whole thing probably needs a rewrite. */
   int64_t i = 0;
   uint8_t swapped = 1;
   do {
@@ -297,6 +298,10 @@ static inline void swipe_market_buy(MeContext *context, MeSecurityContext *ctx,
     if (new_matched_quantity <= 0) {
       order_executed(context, &ctx->sell->orders[0], msg->security_id);
       remove_first_sell(ctx->sell, context->buf_size);
+      if (new_aggressor_quantity <= 0) {
+        order_executed(context, &msg->message.order, msg->security_id);
+        return;
+      }
       /* new_aggressor_quantity <= 0 */
     } else {
       order_executed(context, &msg->message.order, msg->security_id);
@@ -334,6 +339,10 @@ static inline void swipe_market_sell(MeContext *context, MeSecurityContext *ctx,
     if (new_matched_quantity <= 0) {
       order_executed(context, &ctx->buy->orders[0], msg->security_id);
       remove_first_buy(ctx->buy, context->buf_size);
+      if (new_aggressor_quantity <= 0) {
+        order_executed(context, &msg->message.order, msg->security_id);
+        return;
+      }
       /* new_aggressor_quantity <= 0 */
     } else {
       order_executed(context, &msg->message.order, msg->security_id);
@@ -370,6 +379,10 @@ static inline void swipe_limit_buy(MeContext *context, MeSecurityContext *ctx,
     if (new_matched_quantity <= 0) {
       order_executed(context, &ctx->sell->orders[0], msg->security_id);
       remove_first_sell(ctx->sell, context->buf_size);
+      if (new_aggressor_quantity <= 0) {
+        order_executed(context, &msg->message.order, msg->security_id);
+        return;
+      }
       /* new_aggressor_quantity <= 0 */
     } else {
       order_executed(context, &msg->message.order, msg->security_id);
@@ -400,6 +413,10 @@ static inline void swipe_limit_sell(MeContext *context, MeSecurityContext *ctx,
     if (new_matched_quantity <= 0) {
       order_executed(context, &ctx->buy->orders[0], msg->security_id);
       remove_first_buy(ctx->buy, context->buf_size);
+      if (new_aggressor_quantity <= 0) {
+        order_executed(context, &msg->message.order, msg->security_id);
+        return;
+      }
       /* new_aggressor_quantity <= 0 */
     } else {
       order_executed(context, &msg->message.order, msg->security_id);
@@ -440,6 +457,8 @@ static inline void remove_buy_order(MeBook *book, int64_t idx,
     }
   }
 
+  book->used--;
+
   if (book->next != NULL && book->next->used > 0) {
     // Garanteed to not allocate.
     new_limit_buy(book, &book->next->orders[0], buf_size, NULL);
@@ -458,6 +477,8 @@ static inline void remove_sell_order(MeBook *book, int64_t idx,
       idx = RIGHT(idx);
     }
   }
+
+  book->used--;
 
   if (book->next != NULL && book->next->used > 0) {
     // Garanteed to not allocate.
@@ -490,6 +511,7 @@ static inline void cancel_order(MeContext *context, MeSecurityContext *ctx,
   }
 
 unset:
+  sendmsg(context, msg);
   omp_unset_lock(&ctx->lock);
 }
 
@@ -519,6 +541,7 @@ void *me_run(MeContext *context, void *paralell_job(void *), void *job_arg) {
             break;
           case ME_MESSAGE_CANCEL_ORDER:
             cancel_order(context, ctx, &msg);
+            break;
           case ME_MESSAGE_TRADE:
           case ME_MESSAGE_ORDER_EXECUTED:
           case ME_MESSAGE_PANIC:

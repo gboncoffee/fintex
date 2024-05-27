@@ -96,7 +96,7 @@ class Message:
 
 class MessagePanic(Message):
     def toTuple(self):
-        return (melow.ME_MESSAGE_PANIC)
+        return (melow.ME_MESSAGE_PANIC, ())
 
 
     def __init__(self):
