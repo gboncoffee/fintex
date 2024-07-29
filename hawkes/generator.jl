@@ -24,6 +24,12 @@ function simulate(gen::HawkesGenerator)::HawkesSimulation
     return HawkesSimulation(ts, intensity)
 end
 
+# HawkesSimulation.intensity has the intensity multipliers across the timestamps
+# in ts. They're not normalized.
+#
+# A great idea would be a function that normalizes it and prints to a file, so
+# we can read from C to actually create the sender program.
+
 function plotHawkesSimulation(sim::HawkesSimulation)
     plot(sim.ts, sim.intensity, xlabel = "Time", ylabel = "Intensity", label = "")
 end
